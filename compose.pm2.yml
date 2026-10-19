@@ -1,0 +1,14 @@
+# Backend-only profile for the pm2 + Node gateway deployment.
+#
+#   docker compose -f compose.yml -f compose.pm2.yml up -d api worker
+#
+# The web container is put behind an unused profile; the public entry point is
+# pm2 -> node apps/web/server.mjs on port 3015.  The API is published only on
+# loopback so the Node gateway can reach it.
+services:
+  api:
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+
+  web:
+    profiles: ["docker-web"]

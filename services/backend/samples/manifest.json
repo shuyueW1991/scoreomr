@@ -1,0 +1,92 @@
+[
+  {
+    "id": "clean_piano",
+    "name": "干净印刷谱 · 整行",
+    "category": "clean",
+    "category_label": "清晰印刷",
+    "image": "images/clean_piano.png",
+    "gt": "gt/clean_piano.musicxml",
+    "gt_notes": 81,
+    "blurb": "Verovio 渲染的双谱表，四小节，Audiveris 的主场。"
+  },
+  {
+    "id": "clean_midpiece",
+    "name": "干净印刷谱 · 中段",
+    "category": "clean",
+    "category_label": "清晰印刷",
+    "image": "images/clean_midpiece.png",
+    "gt": "gt/clean_midpiece.musicxml",
+    "gt_notes": 64,
+    "blurb": "缺少拍号/调号，考察上下文继承和小节结构。"
+  },
+  {
+    "id": "clean_layout_conflict",
+    "name": "相邻 system 残片",
+    "category": "clean",
+    "category_label": "清晰印刷",
+    "image": "images/clean_layout_conflict.png",
+    "gt": "gt/clean_layout_conflict.musicxml",
+    "gt_notes": 115,
+    "blurb": "截图里混入上一行/下一行残片，版面分析的分水岭。"
+  },
+  {
+    "id": "phone_photo",
+    "name": "手机照片风格",
+    "category": "photo",
+    "category_label": "手机照片",
+    "image": "images/phone_photo.png",
+    "gt": "gt/clean_piano.musicxml",
+    "gt_notes": 81,
+    "blurb": "透视 + 阴影 + 模糊 + JPEG，模拟随手拍。"
+  },
+  {
+    "id": "real_scan_highres",
+    "name": "真实高分辨率扫描",
+    "category": "scan",
+    "category_label": "真实扫描",
+    "image": "images/real_scan_highres.png",
+    "gt": "gt/real_scan_highres.musicxml",
+    "gt_notes": 85,
+    "blurb": "OLiMPiC 旧版刻印，homr 在真实扫描上通常更强。"
+  },
+  {
+    "id": "real_scan_second",
+    "name": "真实扫描 · 第二行",
+    "category": "scan",
+    "category_label": "真实扫描",
+    "image": "images/real_scan_second.png",
+    "gt": "gt/real_scan_second.musicxml",
+    "gt_notes": 77,
+    "blurb": "同一曲目的第二行，考察跨行稳定性。"
+  },
+  {
+    "id": "real_scan_hard",
+    "name": "更难的旧谱",
+    "category": "scan",
+    "category_label": "真实扫描",
+    "image": "images/real_scan_hard.png",
+    "gt": "gt/real_scan_hard.musicxml",
+    "gt_notes": 75,
+    "blurb": "低质量刻印，两个引擎都不够，需要人工复核。"
+  },
+  {
+    "id": "real_scan_lowres",
+    "name": "真实低分辨率扫描",
+    "category": "scan",
+    "category_label": "真实扫描",
+    "image": "images/real_scan_lowres.png",
+    "gt": "gt/clean_piano.musicxml",
+    "gt_notes": 81,
+    "blurb": "593×146，谱线间距只有几个像素。"
+  },
+  {
+    "id": "hard_lowres",
+    "name": "强退化 · 620px",
+    "category": "stress",
+    "category_label": "边界压力",
+    "image": "images/hard_lowres.png",
+    "gt": "gt/clean_piano.musicxml",
+    "gt_notes": 81,
+    "blurb": "低分辨率 + 强模糊 + 低质量 JPEG，引擎边界。"
+  }
+]

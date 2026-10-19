@@ -1,0 +1,25 @@
+# Optional automatic-HTTPS front proxy (docker compose -f compose.yml -f compose.tls.yml up -d)
+# Set DOMAIN=omr.example.com and APP_URL=https://omr.example.com in .env.
+# Caddy obtains and renews a Let's Encrypt certificate automatically.
+{$DOMAIN:localhost} {
+    encode gzip
+
+    # Overwrite, rather than append, so a spoofed client header cannot win.
+    reverse_proxy web:80 {
+        header_up X-Forwarded-For {http.request.remote.host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "same-origin"
+        -Server
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

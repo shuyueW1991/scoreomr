@@ -1,0 +1,35 @@
+# Optional automatic-HTTPS front proxy.
+#
+#   DOMAIN=omr.example.com APP_URL=https://omr.example.com \
+#     docker compose -f compose.yml -f compose.tls.yml up -d --build
+#
+# The base web service stays bound to 127.0.0.1:8080; Caddy is the only
+# service exposed on 80/443.
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy-data:
+    name: scoreomr-caddy-data
+  caddy-config:
+    name: scoreomr-caddy-config

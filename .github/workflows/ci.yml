@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node --check apps/web/server.mjs
+      - run: node --check ecosystem.config.cjs
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install poppler (PDF upload tests)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.3"
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install Python dependencies
+        working-directory: services/backend
+        run: uv sync --frozen --extra omr --extra dev
+      - name: Run tests
+        working-directory: services/backend
+        run: uv run pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -f deploy/api.Dockerfile -t scoreomr-api:ci .
+      - name: Build web image
+        run: docker build -f deploy/web.Dockerfile -t scoreomr-web:ci .
+      # The worker image downloads Audiveris + homr models and is intentionally
+      # not built on every pull request. Build it with:
+      #   docker compose build worker

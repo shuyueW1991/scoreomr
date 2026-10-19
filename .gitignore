@@ -1,0 +1,41 @@
+# Node / pnpm
+node_modules/
+.pnpm-store/
+apps/web/dist/
+*.tsbuildinfo
+
+# Python
+.venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local runtime state
+.env
+.env.local
+.env.*.local
+.dev-data*/
+data/
+backups/
+vendor/
+.uv-cache/
+.uv-python/
+.uv-tools/
+.uv-bin/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build artefacts
+*.log

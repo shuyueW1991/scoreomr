@@ -1,0 +1,34 @@
+{
+  "name": "scoreomr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ScoreOMR: free, open-source dual-engine OMR with optional Google sign-in, pm2 3015 and Docker worker.",
+  "packageManager": "pnpm@11.28.5",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "pnpm --filter @scoreomr/web dev",
+    "start": "node apps/web/server.mjs",
+    "pm2:start": "bash scripts/pm2-start.sh",
+    "pm2:reload": "pm2 reload scoreomr --update-env",
+    "pm2:stop": "pm2 stop scoreomr",
+    "pm2:logs": "pm2 logs scoreomr",
+    "build": "pnpm --filter @scoreomr/web build",
+    "typecheck": "pnpm --filter @scoreomr/web typecheck",
+    "test": "pnpm run test:api && pnpm run typecheck && pnpm run build",
+    "test:api": "bash scripts/py.sh -m pytest -q",
+    "lint": "bash scripts/py.sh -m compileall -q app omr_agent && pnpm run typecheck",
+    "docker:config": "docker compose config",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:tls": "docker compose -f compose.yml -f compose.tls.yml up -d --build",
+    "docker:tls:down": "docker compose -f compose.yml -f compose.tls.yml down",
+    "docker:logs": "docker compose logs -f --tail=200",
+    "docker:reset": "docker compose down -v",
+    "db:backup": "bash scripts/backup.sh"
+  }
+}

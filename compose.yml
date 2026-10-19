@@ -1,0 +1,114 @@
+name: scoreomr
+
+# ---------------------------------------------------------------------------
+# Shared application environment. Every value has a default so the stack
+# boots without a .env file; Google login and HTTPS stay optional.
+# Compose also loads .env automatically for substitutions.
+# ---------------------------------------------------------------------------
+x-app-env: &app-env
+  APP_NAME: ${APP_NAME:-ScoreOMR}
+  APP_ENV: ${APP_ENV:-production}
+  APP_URL: ${APP_URL:-http://localhost:8080}
+  APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
+  DATA_DIR: /data
+  DATABASE_PATH: /data/scoreomr.db
+  SESSION_SECRET: ${SESSION_SECRET:-}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-}
+  SESSION_DAYS: ${SESSION_DAYS:-30}
+  DAILY_LIMIT: ${DAILY_LIMIT:-1}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+  MAX_GT_MB: ${MAX_GT_MB:-2}
+  MAX_QUEUE_LENGTH: ${MAX_QUEUE_LENGTH:-20}
+  MAX_ACTIVE_JOBS: ${MAX_ACTIVE_JOBS:-1}
+  JOB_RETENTION_DAYS: ${JOB_RETENTION_DAYS:-7}
+  JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-900}
+  WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-1.5}
+  OMR_MOCK: ${OMR_MOCK:-false}
+  OMR_ENGINES: ${OMR_ENGINES:-audiveris,homr}
+  TRUST_PROXY: "true"
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  api:
+    image: scoreomr-api:local
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        UV_VERSION: ${UV_VERSION:-0.12.3}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+    environment:
+      <<: *app-env
+    volumes:
+      - scoreomr-data:/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+
+  worker:
+    image: scoreomr-worker:local
+    # Audiveris only ships an amd64 Linux package. On Apple Silicon Docker
+    # Desktop this runs under emulation; Aliyun x86_64 runs it natively.
+    platform: ${WORKER_PLATFORM:-linux/amd64}
+    build:
+      context: .
+      dockerfile: deploy/worker.Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        UV_VERSION: ${UV_VERSION:-0.12.3}
+        APT_MIRROR: ${APT_MIRROR:-}
+        AUDIVERIS_DEB_URL: ${AUDIVERIS_DEB_URL:-https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb}
+        AUDIVERIS_HEAP: ${AUDIVERIS_HEAP:-1536m}
+        HOMR_INIT: ${HOMR_INIT:-1}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+    environment:
+      <<: *app-env
+      AUDIVERIS_BIN: /opt/audiveris/bin/Audiveris
+      HOMR_BIN: /opt/venv/bin/homr
+      OMR_DISABLE_UVX: "1"
+      HOME: /home/app
+      XDG_CACHE_HOME: /home/app/.cache
+      MPLCONFIGDIR: /home/app/.cache/matplotlib
+    volumes:
+      - scoreomr-data:/data
+    depends_on:
+      api:
+        condition: service_started
+    stop_grace_period: 3m
+    restart: unless-stopped
+    logging: *logging
+
+  web:
+    image: scoreomr-web:local
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+    # Bind to loopback only: a host/Caddy TLS proxy is the public entry point.
+    # For a temporary HTTP-only local run, open http://127.0.0.1:8080.
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+
+volumes:
+  scoreomr-data:
+    name: scoreomr-data

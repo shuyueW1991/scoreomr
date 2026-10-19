@@ -1,0 +1,54 @@
+ScoreOMR — third-party notices
+==============================
+
+The MIT licence in LICENSE covers the original code in this repository
+(API, worker orchestration, React UI, deployment files).  It does NOT relicense
+the third-party OMR engines, models, libraries or sample data below.
+
+OMR engines and models (separate processes, invoked as tools)
+-------------------------------------------------------------
+* Audiveris 5.11 — AGPL-3.0
+  https://github.com/Audiveris/audiveris
+  The Linux .deb bundles a Java runtime.  This repository invokes the
+  unmodified binary via subprocess and does not link it into the Python code.
+* homr 0.7 — AGPL-3.0
+  https://github.com/liebharc/homr
+  Installed into the worker image; its ONNX/OCR weights are downloaded by
+  `homr --init` and remain under homr's own licence.
+* oemer — optional legacy CLI adapter only; see upstream for its licence.
+  https://github.com/BreezeWhite/oemer
+
+AGPL network-use note
+---------------------
+Audiveris and homr are AGPL-3.0.  If you make a modified version of either
+engine available to users over a network, AGPL-3.0 requires you to offer the
+corresponding source code to those users.  Running the unmodified engines in
+separate containers is still a distribution/use of AGPL software, so keep the
+source and licence notices available and review your obligations with counsel
+before offering a closed-source commercial service.  The engine source is
+available at the upstream URLs above; any modifications you make must be
+published under the same licence.
+
+Python / JavaScript dependencies
+--------------------------------
+FastAPI (MIT), Starlette (BSD-3-Clause), Uvicorn (BSD-3-Clause),
+Pydantic (MIT), Pillow (HPND), httpx (BSD-3-Clause), argon2-cffi (MIT),
+music21 (BSD-3-Clause), NumPy (BSD-3-Clause), OpenCV (Apache-2.0),
+Matplotlib (PSF-based), React (MIT), React Router (MIT), Vite (MIT),
+TypeScript (Apache-2.0), pnpm (MIT), Nginx (BSD-2-Clause),
+Caddy (Apache-2.0), Ubuntu packages (their respective licences).
+See each upstream project for the authoritative licence text.
+
+Sample data
+-----------
+The nine demo images and six MusicXML ground-truth files under
+services/backend/samples are derived from OLiMPiC 1.0 – Scanned and are
+licensed CC BY-SA 4.0.  Attribution and the full licence are included in
+services/backend/samples/ATTRIBUTION.md, LICENSE-OLiMPiC.txt and
+README-OLiMPiC.md.  The clean/degraded variants were rendered/synthesised by
+the original research prototype.
+
+Trademarks
+----------
+Audiveris, homr, OLiMPiC and other names are trademarks of their respective
+owners.  This project is not endorsed by them.
