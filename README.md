@@ -32,6 +32,28 @@
 
 ---
 
+## 怎么用（看两个路径就够了）
+
+**核心流程：** 上传一张乐谱截图 → 双引擎（Audiveris × homr）识别 → 得到可编辑的
+MusicXML 和可播放的 MIDI / WAV。不注册、不登录、没有额度，打开即用。
+
+**路径 A · 在线直接用（推荐，手机也行）**
+- 打开部署好的公网地址（部署方法见 [Zeabur 免费一键部署](docs/DEPLOY_ZEABUR.md)），上传谱面图片即用；
+- iPhone 用 Safari 打开该地址，点「分享 → 添加到主屏幕」，以后当 App 用。
+
+**路径 B · 本地自己跑（开发者）**
+
+```bash
+git clone <本仓库地址> && cd scoreomr
+pnpm setup
+pnpm dev        # 浏览器打开 http://127.0.0.1:5173
+```
+
+- 默认 mock 模式：不装任何 OMR 引擎，也能把「上传 → 识别 → 播放 → 下载」全流程走通；
+- 要真实识别：装 Docker 后 `pnpm docker:up`，或按下方 3.1 节装 Audiveris / homr。
+
+---
+
 ## 1. 它能做什么
 
 - 上传 PNG / JPG / WebP / TIFF / BMP 或单页 PDF，得到：

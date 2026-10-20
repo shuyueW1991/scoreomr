@@ -40,8 +40,9 @@ git push -u origin main
    按 Docker 构建，无需选框架；
 4. 构建 + 部署。**首次构建较慢**（要下载 Audiveris、homr 的 ONNX 权重，
    肉眼预估 10–20 分钟），之后有缓存会快很多；
-5. 部署成功后，在服务详情把 **networking / 公网端口** 绑定到 Zeabur 分配的公网
-   域名（`https://<服务名>.zeabur.app`）。
+5. 部署成功后，在服务详情把 **networking / 公网端口** 绑定到 Zeabur 自动分配的
+   `.zeabur.app` 免费域名，**复制那个完整域名**（可能带随机后缀）：
+   它就是后面 `APP_URL` 要填的值。
 
 > 若构建中途失败，先看构建日志：绝大多数失败集中在装 Audiveris 那一步（GitHub
 > 下载 .deb）。可以重试；或者把仓库 fork 到能稳定访问 GitHub 的网络再构建。
@@ -50,9 +51,9 @@ git push -u origin main
 
 | 变量 | 值 | 说明 |
 |---|---|---|
-| `APP_URL` | `https://<你的服务名>.zeabur.app` | **必须填**，否则 Cookie 不带 Secure，任务历史归属失效 |
+| `APP_URL` | `https://<Zeabur 实际分配的域名>/` | **必须填**：用 Networking 里生成的真实域名（可能带随机后缀），复制完整地址填进去；否则 Cookie 不带 Secure，任务历史归属失效 |
 | `APP_ENV` | `production` | 默认可省略，但写了更明确 |
-| `MAX_QUEUE_LENGTH` | `5` | 收紧额度：默认 20，公开实例压低防止被刷爆 |
+| `MAX_QUEUE_LENGTH` | `2` | 收紧额度：镜像默认已改为 2，不用填也行；数值越小越防刷 |
 | `MAX_ACTIVE_JOBS` | `1` | 每个浏览器同时最多 1 个任务（默认就是 1） |
 | `MAX_UPLOAD_MB` | `15` | 收紧额度：默认 20 |
 | `JOB_TIMEOUT_SECONDS` | `900` | 单任务超时，公开实例没必要更长 |
@@ -76,7 +77,7 @@ docker run --rm -e PORT=3000 -p 3000:3000 scoreomr-all:test
 
 ## iPhone 怎么用它
 
-1. 用 **Safari** 打开 `https://<你的服务名>.zeabur.app`（不要用微信/QQ内置浏览器）;
+1. 用 **Safari** 打开 `https://<Zeabur 实际分配的域名>/`（不要用微信/QQ内置浏览器）;
 2. 点底部 **分享按钮 → 添加到主屏幕**：以后从桌面图标进入，像 App 一样用
    （这是网页书签，不是真 PWA，但点击就全屏打开，足够日常用）;
 3. 使用方式：
@@ -98,9 +99,35 @@ docker run --rm -e PORT=3000 -p 3000:3000 scoreomr-all:test
 - **`/data` 用实例自带磁盘**：重启/重建可能丢数据（任务历史、结果都在里面）。
   想要持久化，在 Zeabur 面板给服务挂一个持久化存储卷并确保 `DATA_DIR=/data`
   指向挂载点；
-- **公网公开 = 谁都能用**：虽然 `MAX_QUEUE_LENGTH=5` 已收紧，仍可能被陌生人
-  消耗 CPU。若担心滥用，可以在服务前面再加一层 Cloudflare 的“质询”或访问限制，
-  或用 Zeabur 的鉴权功能（见平台文档）。
+- **公网公开 = 谁都能用**：镜像内已把 `MAX_QUEUE_LENGTH` 收紧到 2，陌生人刷
+  不死你，但会被占 CPU。想要更大保护，可以在域名前面套一个免费的
+  **Cloudflare 托管质询页**（见下节）。
+
+## （可选）给公网地址套 Cloudflare 质询页
+
+目的：普通人打开域名时先过一道 Cloudflare 的“确认你是真人”页面，机器脚本
+基本进不来；真人点一下就能用，不影响体验。
+
+前提：需要**一个自己的域名**（几块钱一年，比如 `.xyz`/`.top`/`.site`），
+免费的 `*.zeabur.app` 子域名无法托管到 Cloudflare。
+
+做法（全程免费）：
+
+1. 注册 Cloudflare（免费用中文界面），添加你的域名，把注册商的 NS 改成
+   Cloudflare 给的两条；
+2. 在 Cloudflare → **DNS** → 添加一条记录：类型 `CNAME`，名称 `omr`（或任选），
+   目标填 Zeabur Networking 里生成的地址，代理状态选 **已代理（橙色云朵）**；
+   SSL/TLS 模式选 **完全**；
+3. 在 **安全性 → WAF → 自定义规则**（免费版就有）加一条：
+   - 当 `Hostname` 等于 `omr.你的域名` 且 `威胁分数 > 0`（或直接对所有人）→
+     动作选 **Managed Challenge 托管质询**；
+   - 更简单粗暴的免费替代：**安全性 → 安全级别**调高，或开
+     **Bot Fight Mode**（免费版自带）；
+4. 回 Zeabur 把 `APP_URL` 改成 `https://omr.你的域名`，重新部署；
+   这样可以先用免费 `.zeabur.app` 地址测通，再切到 Cloudflare 域名。
+
+> 不想花钱买域名就别套了：`MAX_QUEUE_LENGTH=2` 已经在镜像里生效，作为 demo
+> 完全够用。质询页只是“更放心”的加分项。
 
 ## 和现有部署方式的关系
 
