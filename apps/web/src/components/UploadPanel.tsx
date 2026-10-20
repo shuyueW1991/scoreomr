@@ -12,9 +12,9 @@ import { errorMessage, useI18n } from "../lib/i18n";
 import type { AppConfig, Mode } from "../lib/types";
 import { ModePicker } from "./ModePicker";
 import { Spinner } from "./Spinner";
-import { AlertIcon, ArrowRightIcon, FileIcon, SparkIcon, UploadIcon, XIcon } from "./icons";
+import { AlertIcon, ArrowRightIcon, CameraIcon, FileIcon, SparkIcon, UploadIcon, XIcon } from "./icons";
 
-const ACCEPT = ".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.pdf";
+const ACCEPT = ".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.pdf,image/*";
 const GT_ACCEPT = ".xml,.musicxml,.mxl";
 
 export function UploadPanel({
@@ -30,6 +30,7 @@ export function UploadPanel({
 }) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [gtFile, setGtFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -37,8 +38,13 @@ export function UploadPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
 
   const limitMb = config.max_upload_mb;
+
+  useEffect(() => {
+    setIsTouch(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
 
   useEffect(() => {
     if (!file || !file.type.startsWith("image/")) {
@@ -115,6 +121,15 @@ export function UploadPanel({
         onChange={onFileChange}
         tabIndex={-1}
       />
+      <input
+        ref={cameraRef}
+        className="visually-hidden"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={onFileChange}
+        tabIndex={-1}
+      />
       <button
         type="button"
         className={classNames("dropzone", dragging && "dropzone-active", file && "dropzone-filled")}
@@ -172,6 +187,18 @@ export function UploadPanel({
           </>
         )}
       </button>
+
+      {isTouch && !file && (
+        <button
+          type="button"
+          className="btn btn-camera"
+          onClick={() => cameraRef.current?.click()}
+          aria-label={t("upload.cameraAria")}
+        >
+          <CameraIcon size={17} />
+          {t("upload.camera")}
+        </button>
+      )}
 
       <ModePicker value={mode} onChange={setMode} disabled={busy} />
 

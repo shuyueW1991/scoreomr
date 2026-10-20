@@ -10,6 +10,7 @@
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "dev": "node scripts/dev.mjs",
+    "dev:lan": "node scripts/dev.mjs --lan",
     "dev:web": "pnpm --filter @scoreomr/web dev",
     "start": "node apps/web/server.mjs",
     "pm2:start": "bash scripts/pm2-start.sh",

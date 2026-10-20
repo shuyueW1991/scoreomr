@@ -6,7 +6,7 @@
 ![ScoreOMR 识别台](docs/screenshots/home.png)
 
 - 界面截图：[识别台](docs/screenshots/home.png) · [结果页](docs/screenshots/job-result.png) · [手机首页](docs/screenshots/mobile.png) · [手机结果页](docs/screenshots/mobile-job.png)
-- 部署：[pm2 + 3015 + Docker](docs/DEPLOY_PM2.md) · [全 Docker / 阿里云](docs/DEPLOY_ALIYUN.md) · [Zeabur 免费一键部署（公网 demo，iPhone 可用）](docs/DEPLOY_ZEABUR.md)
+- 部署：[pm2 + 3015 + Docker](docs/DEPLOY_PM2.md) · [全 Docker / 阿里云](docs/DEPLOY_ALIYUN.md)
 - 架构与取舍：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - OMR 实测与三情形说明：[docs/OMR.md](docs/OMR.md)
 
@@ -36,10 +36,20 @@
 
 **核心流程：** 上传一张乐谱截图 → 双引擎（Audiveris × homr）识别 → 得到可编辑的
 MusicXML 和可播放的 MIDI / WAV。不注册、不登录、没有额度，打开即用。
+自己拉仓库、自己跑，数据只留在自己的电脑上。
 
-**路径 A · 在线直接用（推荐，手机也行）**
-- 打开部署好的公网地址（部署方法见 [Zeabur 免费一键部署](docs/DEPLOY_ZEABUR.md)），上传谱面图片即用；
-- iPhone 用 Safari 打开该地址，点「分享 → 添加到主屏幕」，以后当 App 用。
+**路径 A · 电脑跑 + 手机用（推荐，iPhone / Android 都行）**
+
+```bash
+git clone <本仓库地址> && cd scoreomr
+pnpm setup
+pnpm dev:lan      # 启动后终端会打印手机访问地址，如 http://192.168.1.5:5173
+```
+
+- Mac 和手机连**同一个 WiFi**，手机用 **Safari / Chrome** 打开终端打印的 `http://<你的电脑IP>:5173`；
+- 手机端点「**拍照上传**」可以直接调起相机拍乐谱，不用先存图；
+- 点底部「**分享 → 添加到主屏幕**」：以后从桌面图标打开，全屏无地址栏，像 App 一样用；
+- 默认 mock 模式演示全流程；要真实识别见下方 3.1 节。
 
 **路径 B · 本地自己跑（开发者）**
 
@@ -51,6 +61,9 @@ pnpm dev        # 浏览器打开 http://127.0.0.1:5173
 
 - 默认 mock 模式：不装任何 OMR 引擎，也能把「上传 → 识别 → 播放 → 下载」全流程走通；
 - 要真实识别：装 Docker 后 `pnpm docker:up`，或按下方 3.1 节装 Audiveris / homr。
+
+> 手机同 WiFi 访问不了？多半是 macOS 防火墙拦了端口：系统设置 → 网络 → 防火墙
+> → 允许 `node` 接受传入连接（仅住宅 WiFi 下这样开，公共网络别开）。
 
 ---
 

@@ -7,6 +7,7 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
+import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,9 +15,22 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const backend = path.join(root, "services/backend");
 const python = path.join(backend, ".venv/bin/python");
 
+const lan = process.argv.includes("--lan");
+const bindHost = lan ? "0.0.0.0" : "127.0.0.1";
+
 if (!existsSync(python)) {
   console.error("Python environment missing. Run `pnpm setup` first.");
   process.exit(1);
+}
+
+function lanUrls(port) {
+  const urls = [];
+  for (const ifaceInfo of Object.values(networkInterfaces())) {
+    for (const info of ifaceInfo ?? []) {
+      if (info.family === "IPv4" && !info.internal) urls.push(`http://${info.address}:${port}`);
+    }
+  }
+  return urls;
 }
 
 // Load optional local settings from .env when present.
@@ -39,8 +53,8 @@ mkdirSync(mplDir, { recursive: true });
 const env = {
   ...process.env,
   APP_ENV: "development",
-  APP_URL: `http://127.0.0.1:${webPort}`,
-  API_PROXY_TARGET: `http://127.0.0.1:${apiPort}`,
+  APP_URL: lan ? (lanUrls(webPort)[0] || `http://127.0.0.1:${webPort}`) : `http://127.0.0.1:${webPort}`,
+  API_PROXY_TARGET: `http://${bindHost === "0.0.0.0" ? "127.0.0.1" : bindHost}:${apiPort}`,
   DATA_DIR: dataDir,
   DATABASE_PATH: path.join(dataDir, "scoreomr.db"),
   SAMPLES_DIR: path.join(backend, "samples"),
@@ -104,12 +118,13 @@ process.on("SIGTERM", () => shutdown(0));
 
 console.log(`
 ScoreOMR development stack
-  web   http://127.0.0.1:${webPort}
+  web   http://${bindHost === "0.0.0.0" ? "0.0.0.0" : "127.0.0.1"}:${webPort}
   api   http://127.0.0.1:${apiPort}/api/health
   data  ${dataDir}
   mode  ${env.OMR_MOCK === "true" ? "mock OMR (demo output)" : "real OMR engines"}
+${lan ? `  phone ${lanUrls(webPort).map((u) => `${u}  ← iPhone 同 WiFi 打开`).join("\n        ")}` : ""}
 `);
 
 run("api", python, ["-m", "uvicorn", "app.main:create_app", "--factory", "--reload", "--host", "127.0.0.1", "--port", apiPort], backend);
 run("worker", python, ["-m", "app.worker"], backend);
-run("web", "pnpm", ["--filter", "@scoreomr/web", "exec", "vite", "--host", "127.0.0.1", "--port", webPort], root);
+run("web", "pnpm", ["--filter", "@scoreomr/web", "exec", "vite", "--host", bindHost, "--port", webPort], root);

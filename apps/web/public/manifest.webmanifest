@@ -1,0 +1,24 @@
+{
+  "name": "ScoreOMR · 乐谱截图转 MusicXML",
+  "short_name": "ScoreOMR",
+  "description": "把乐谱截图变成可演奏、可编辑的 MusicXML。本地运行，无需注册登录。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f3ec",
+  "theme_color": "#f6f3ec",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

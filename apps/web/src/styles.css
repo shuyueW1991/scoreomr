@@ -365,6 +365,15 @@ code {
   font-size: 11px;
 }
 
+/* Mobile photo button: only rendered on touch devices by the app itself;
+   kept here for visual consistency with the rest of the upload card. */
+.btn-camera {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  border-color: var(--line-ink);
+}
+
 /* --------------------------------------------------------------------------
    Shell / header / language / footer
    -------------------------------------------------------------------------- */
