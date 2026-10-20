@@ -1,11 +1,10 @@
 import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { classNames } from "../lib/format";
+import { useConfig } from "../lib/config";
 import { useI18n } from "../lib/i18n";
-import { useMe } from "../lib/me";
 import { Brand } from "./Brand";
 import { LocaleSwitcher } from "./LocaleSwitcher";
-import { QuotaPill } from "./QuotaPill";
 
 function NavItem({ to, label }: { to: string; label: string }) {
   return (
@@ -35,7 +34,7 @@ function ScrollManager() {
 }
 
 export function Layout() {
-  const { me, loading, error } = useMe();
+  const { error } = useConfig();
   const { t } = useI18n();
   return (
     <div className="site-shell">
@@ -45,29 +44,10 @@ export function Layout() {
           <Brand />
           <nav className="main-nav" aria-label={t("nav.main")}>
             <NavItem to="/" label={t("nav.studio")} />
-            {me?.user && <NavItem to="/account" label={t("nav.account")} />}
+            <NavItem to="/account" label={t("nav.history")} />
           </nav>
           <div className="header-actions">
             <LocaleSwitcher />
-            <QuotaPill />
-            {!loading &&
-              (me?.user ? (
-                <Link to="/account" className="user-chip" title={me.user.email}>
-                  <span className="user-avatar" aria-hidden="true">
-                    {me.user.email.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="user-email">{me.user.email}</span>
-                </Link>
-              ) : (
-                <>
-                  <Link to="/login" className="btn btn-ghost btn-small">
-                    {t("nav.login")}
-                  </Link>
-                  <Link to="/register" className="btn btn-dark btn-small">
-                    {t("nav.signup")}
-                  </Link>
-                </>
-              ))}
           </div>
         </div>
         {error && (
@@ -91,7 +71,7 @@ export function Layout() {
           <div className="footer-col">
             <h4>{t("footer.product")}</h4>
             <Link to="/">{t("nav.studio")}</Link>
-            <Link to="/account">{t("footer.account")}</Link>
+            <Link to="/account">{t("nav.history")}</Link>
           </div>
           <div className="footer-col">
             <h4>{t("footer.tech")}</h4>

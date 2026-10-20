@@ -17,7 +17,6 @@ def matplotlib_cache(tmp_path, monkeypatch):
 
 
 def test_worker_end_to_end_mock(client, settings, tmp_path):
-    client.get("/api/me")
     job = create_sample_job(client)
     worker = Worker(settings)
     claimed = worker.ctx.db.claim_next_job("test-worker")
@@ -40,9 +39,6 @@ def test_worker_end_to_end_mock(client, settings, tmp_path):
         assert response.status_code == 200, name
         assert len(response.content) > 0
 
-    quota = client.get("/api/me").json()["quota"]
-    assert quota["remaining_today"] == 0
-
     # Intermediates should not linger on disk.
     job_row = worker.ctx.db.get_job(job["id"])
     result_dir = settings.data_dir / job_row["result_dir"]
@@ -50,8 +46,7 @@ def test_worker_end_to_end_mock(client, settings, tmp_path):
     assert not (result_dir / "preprocessed").exists()
 
 
-def test_worker_failure_refunds_quota(client, settings):
-    client.get("/api/me")
+def test_worker_failure_marks_job_error(client, settings):
     job = create_sample_job(client)
     worker = Worker(settings)
     claimed = worker.ctx.db.claim_next_job("test-worker")
@@ -65,35 +60,9 @@ def test_worker_failure_refunds_quota(client, settings):
     row = worker.ctx.db.get_job(job["id"])
     assert row["status"] == "error"
     assert client.get(f"/api/jobs/{job['id']}").json()["status"] == "error"
-    quota = client.get("/api/me").json()["quota"]
-    assert quota["remaining_today"] == 1
-
-
-def test_worker_cleanup_removes_expired_files(client, settings):
-    client.get("/api/me")
-    job = create_sample_job(client)
-    cleanup_worker = Worker(settings)
-    claimed = cleanup_worker.ctx.db.claim_next_job("test-worker")
-    assert claimed is not None
-    cleanup_worker.process_job(claimed)
-    row = cleanup_worker.ctx.db.get_job(job["id"])
-    job_dir = (settings.data_dir / row["result_dir"]).parent
-    assert job_dir.exists()
-
-    old = iso(utcnow() - timedelta(days=30))
-    with cleanup_worker.ctx.db.transaction() as conn:
-        conn.execute("UPDATE jobs SET finished_at = ? WHERE id = ?", (old, job["id"]))
-    cleanup_worker.cleanup()
-    assert not job_dir.exists()
-    assert cleanup_worker.ctx.db.get_job(job["id"])["files_deleted"] == 1
-    assert client.get(f"/api/jobs/{job['id']}/files/best.musicxml").status_code == 404
-    cleaned = client.get(f"/api/jobs/{job['id']}").json()
-    assert cleaned["report"] is None
-    assert cleaned["files"] == []
 
 
 def test_worker_requeues_orphaned_running_job(client, settings):
-    client.get("/api/me")
     job = create_sample_job(client)
     worker = Worker(settings)
     claimed = worker.ctx.db.claim_next_job("dead-worker")
@@ -107,8 +76,7 @@ def test_worker_requeues_orphaned_running_job(client, settings):
     assert row["attempts"] == 1
 
 
-def test_worker_marks_exhausted_job_error(client, settings):
-    client.get("/api/me")
+def test_worker_fails_job_after_max_attempts(client, settings):
     job = create_sample_job(client)
     worker = Worker(settings)
     claimed = worker.ctx.db.claim_next_job("dead-worker")
@@ -121,5 +89,3 @@ def test_worker_marks_exhausted_job_error(client, settings):
     worker.recover_stale()
     row = worker.ctx.db.get_job(job["id"])
     assert row["status"] == "error"
-    # A failure refunds the free quota.
-    assert client.get("/api/me").json()["quota"]["remaining_today"] == 1

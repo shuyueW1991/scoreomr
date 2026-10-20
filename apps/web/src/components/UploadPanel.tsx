@@ -6,10 +6,10 @@ import {
   type DragEvent,
   type FormEvent,
 } from "react";
-import { ApiError, api } from "../lib/api";
-import { classNames, formatBytes, resetText } from "../lib/format";
+import { api } from "../lib/api";
+import { classNames, formatBytes } from "../lib/format";
 import { errorMessage, useI18n } from "../lib/i18n";
-import type { AppConfig, Me, Mode } from "../lib/types";
+import type { AppConfig, Mode } from "../lib/types";
 import { ModePicker } from "./ModePicker";
 import { Spinner } from "./Spinner";
 import { AlertIcon, ArrowRightIcon, FileIcon, SparkIcon, UploadIcon, XIcon } from "./icons";
@@ -19,18 +19,14 @@ const GT_ACCEPT = ".xml,.musicxml,.mxl";
 
 export function UploadPanel({
   config,
-  me,
   mode,
   setMode,
   onCreated,
-  refreshMe,
 }: {
   config: AppConfig;
-  me: Me;
   mode: Mode;
   setMode: (mode: Mode) => void;
   onCreated: (jobId: string) => void;
-  refreshMe: () => Promise<void>;
 }) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,10 +36,8 @@ export function UploadPanel({
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quotaError, setQuotaError] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const exhausted = (me.quota.remaining_today ?? 0) <= 0;
   const limitMb = config.max_upload_mb;
 
   useEffect(() => {
@@ -58,7 +52,6 @@ export function UploadPanel({
 
   function acceptFile(next: File | undefined) {
     setError(null);
-    setQuotaError(false);
     if (!next) return;
     if (!/\.(png|jpe?g|webp|bmp|tiff?|pdf)$/i.test(next.name)) {
       setError(t("upload.fileTypeError"));
@@ -84,10 +77,9 @@ export function UploadPanel({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!file || busy || exhausted) return;
+    if (!file || busy) return;
     setBusy(true);
     setError(null);
-    setQuotaError(false);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -97,15 +89,9 @@ export function UploadPanel({
         form.append("gt", gtFile);
       }
       const result = await api.createJob(form);
-      await refreshMe();
       onCreated(result.job.id);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "quota_exceeded") {
-        setQuotaError(true);
-        setError(t("error.quota_exceeded"));
-      } else {
-        setError(errorMessage(err, t));
-      }
+      setError(errorMessage(err, t));
     } finally {
       setBusy(false);
     }
@@ -216,49 +202,29 @@ export function UploadPanel({
       )}
 
       {error && (
-        <div className={classNames("form-alert", quotaError && "form-alert-quota")} role="alert">
+        <div className="form-alert" role="alert">
           <AlertIcon size={18} />
           <div>
-            <strong>{quotaError ? t("upload.quotaTitle") : t("upload.errorTitle")}</strong>
+            <strong>{t("upload.errorTitle")}</strong>
             <p>{error}</p>
-            {quotaError && (
-              <p className="form-alert-extra">
-                {t("upload.quotaReset", { time: resetText(me.quota) })}
-              </p>
-            )}
           </div>
         </div>
       )}
 
-      {exhausted ? (
-        <div className="quota-blocked">
-          <div>
-            <strong>{t("upload.exhaustedTitle")}</strong>
-            <p>{t("upload.exhaustedText", { time: resetText(me.quota), limit: me.quota.daily_limit })}</p>
-          </div>
-        </div>
-      ) : (
-        <button type="submit" className="btn btn-primary btn-submit" disabled={!file || busy}>
-          {busy ? (
-            <Spinner label={t("upload.busy")} />
-          ) : (
-            <>
-              <SparkIcon size={18} />
-              {t("upload.submit")}
-              <ArrowRightIcon size={17} />
-            </>
-          )}
-        </button>
-      )}
+      <button type="submit" className="btn btn-primary btn-submit" disabled={!file || busy}>
+        {busy ? (
+          <Spinner label={t("upload.busy")} />
+        ) : (
+          <>
+            <SparkIcon size={18} />
+            {t("upload.submit")}
+            <ArrowRightIcon size={17} />
+          </>
+        )}
+      </button>
 
       <div className="upload-foot">
-        <span>
-          {t("upload.freeFoot", {
-            remaining: me.quota.remaining_today ?? 0,
-            limit: me.quota.daily_limit ?? 0,
-          })}
-        </span>
-        <span>{t("upload.retention", { days: config.job_retention_days })}</span>
+        <span>{t("upload.localFoot")}</span>
       </div>
 
       {config.omr_mock && (

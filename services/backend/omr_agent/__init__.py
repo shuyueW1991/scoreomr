@@ -2,7 +2,7 @@
 
 The package started as a research prototype (``omr_agent``) and is kept as a
 plain, importable library: preprocess -> engines -> metrics -> play -> select.
-The web service only adds queueing, storage and daily quotas around it.
+The web service only adds queueing and storage around it.
 """
 
 from importlib.metadata import PackageNotFoundError, version

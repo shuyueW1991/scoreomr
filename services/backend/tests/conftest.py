@@ -22,10 +22,7 @@ def make_settings(tmp_path: Path, **overrides: str) -> Settings:
         "DATA_DIR": str(tmp_path / "data"),
         "APP_URL": "http://testserver",
         "OMR_MOCK": "true",
-        "SESSION_COOKIE_SECURE": "false",
-        "DAILY_LIMIT": "1",
         "SAMPLES_DIR": str(SAMPLES),
-        "SESSION_SECRET": "test-secret-that-is-long-enough-for-cookies",
         "LOG_LEVEL": "WARNING",
     }
     env.update(overrides)
@@ -48,12 +45,6 @@ def client(app):
         yield test_client
 
 
-def register(client: TestClient, email: str = "test@example.com", password: str = "password123") -> dict[str, Any]:
-    response = client.post("/api/auth/register", json={"email": email, "password": password})
-    assert response.status_code == 201, response.text
-    return response.json()
-
-
 def create_sample_job(client: TestClient, sample_id: str = "clean_piano", mode: str = "compare") -> dict[str, Any]:
     response = client.post(f"/api/samples/{sample_id}/run", json={"mode": mode})
     assert response.status_code == 201, response.text
@@ -61,7 +52,7 @@ def create_sample_job(client: TestClient, sample_id: str = "clean_piano", mode: 
 
 
 def finish_job(db: Database, job_id: str) -> None:
-    """Skip the worker for quota/auth tests that only need terminal state."""
+    """Skip the worker for tests that only need terminal state."""
     with db.transaction() as conn:
         conn.execute(
             "UPDATE jobs SET status = 'done', finished_at = ? WHERE id = ?",

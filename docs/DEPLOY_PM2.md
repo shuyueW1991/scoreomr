@@ -21,8 +21,8 @@ Docker: api (FastAPI + SQLite)  ←→  Docker: worker (Audiveris + homr)
 - pm2 只负责轻量的 Node 入口，重启快、日志干净；
 - 法兰克福网络拉 Docker Hub / PyPI / GitHub 都比较顺畅。
 
-> **不填任何 key 也能跑。** Google 登录是可选项；不配置时邮箱/密码照常使用。
-> 公开到互联网时建议 HTTPS；只在内网/本机测试可以先用 HTTP。
+> **不填任何 key 也能跑。** 没有账户、没有登录、没有每日额度；任务历史按
+> 浏览器本地 Cookie 归属。公开到互联网时建议 HTTPS；只在内网/本机测试可以先用 HTTP。
 
 ---
 
@@ -90,17 +90,11 @@ cp .env.example .env
 nano .env
 ```
 
-一个不启用 Google、只跑免费邮箱/密码的最小配置：
+一个最小配置（无账户、无额度、无自动清理）：
 
 ```dotenv
 APP_ENV=production
 APP_URL=https://omr.example.com:3015
-DAILY_LIMIT=1
-
-# 可选：想启用 Google 登录时再填
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=
 
 PORT=3015
 API_HOST_PORT=8000
@@ -114,7 +108,7 @@ WORKER_PLATFORM=linux/amd64
 
 如果先用 HTTP 测试，把 `APP_URL` 改成 `http://服务器IP:3015`，并清空
 `TLS_CERT_FILE` / `TLS_KEY_FILE`。公开使用时建议配 HTTPS。
-`SESSION_SECRET`、`SESSION_COOKIE_SECURE` 留空会自动生成/根据 `APP_URL` 判断。
+Cookie 的 `Secure` 标记会自动根据 `APP_URL` 是否为 `https://` 决定。
 
 ---
 
@@ -153,28 +147,14 @@ pm2 restart scoreomr
 
 ---
 
-## 5. Google 登录（可选）
+## 5. 账户与额度
 
-不配置时服务端完全正常，登录页只显示邮箱/密码。如果要启用：
-
-1. Google Cloud Console → OAuth consent screen（External）：
-   scopes 只需要 `openid`、`email`、`profile`。
-2. Credentials → OAuth client ID → Web application：
-   - Authorised redirect URI：`https://omr.example.com:3015/api/auth/google/callback`
-     （必须与 `APP_URL` 完全一致；用 Caddy 443 则不带 `:3015`）
-3. `.env`：
-
-```dotenv
-GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxx
-GOOGLE_REDIRECT_URI=https://omr.example.com:3015/api/auth/google/callback
-```
-
-Google 登录即注册；同邮箱已有密码账户不会自动合并，先用密码登录再在账户页
-显式绑定。只保存邮箱和 Google `sub`，不保存头像或昵称。
-
-本地调试可以用 `APP_URL=http://localhost:3015`，Google 允许 localhost 的 HTTP
-回调；公网 IP 的 HTTP 回调通常不允许。
+**本工具没有账户系统：** 无注册、无登录、无 Google OAuth，也不依赖任何第三方
+API key。任务历史按浏览器在本地写入的匿名 Cookie（`omr_anon`）归属——同一个
+浏览器打开「我的任务」能看到自己的记录；换浏览器、换设备或清除 Cookie 后
+历史不可见（结果文件仍留在数据卷里，可用文件管理找回）。**没有每日额度限制，**
+默认同一浏览器同时只处理 1 个任务（`MAX_ACTIVE_JOBS` 可调），结果文件不会
+自动清理。
 
 ---
 
@@ -224,12 +204,13 @@ Audiveris/homr，给 10–30 秒。
 
 ---
 
-## 7. 验证免费额度
+## 7. 验证识别与任务归属
 
 1. 浏览器打开站点。
-2. 不登录，上传一张图/运行一个样例；默认每天 1 次。
-3. 注册/登录（邮箱或已配置的 Google）后，额度按账户计算，任务可跨设备查看。
-4. 额度用完后，界面只提示重置时间。
+2. 上传一张图/运行一个样例；识别完成后结果可试听、可下载。
+3. 打开「我的任务」应能看到本次记录；换一个浏览器（或清除 Cookie 后）再打开
+   同一链接会得到 404，历史列表为空——这是设计行为。
+4. 结果文件不会自动清理；备份与迁移见 README 第 6 节。
 5. 若失败：`pm2 logs scoreomr`、`docker compose ... logs api worker`。
 
 ---
@@ -261,8 +242,7 @@ ss -ltnp | grep -E '3015|8000'
 |---|---|
 | 3015 打不开 | 云防火墙、`pm2 status`、`ss -ltnp`、证书路径权限 |
 | 8000 被公网访问 | compose 已绑定 `127.0.0.1`；检查防火墙，不要开放 8000 |
-| 未注册额度被共用 | 确认直接访问 3015、`EDGE_TRUST_PROXY=0`；如果前面有代理，需正确设置 `EDGE_TRUST_PROXY=1` 且源站只允许代理访问 |
-| Google 登录 redirect_uri_mismatch | 回调 URI 必须与 `APP_URL` 完全一致（含 `:3015`） |
+| 「我的任务」为空 | 换过浏览器或清过 Cookie；结果文件仍在数据卷，可访问备份 |
 | worker offline | `docker compose ... logs worker`；内存不足时降 `AUDIVERIS_HEAP` 或升级 4 GB |
 | 从旧数据升级 | 建议清空旧数据卷（`docker compose down -v`）后重新部署；旧版本的数据结构不再使用 |
 
@@ -272,10 +252,9 @@ ss -ltnp | grep -E '3015|8000'
 
 | 项 | 必需？ | 用途 |
 |---|---|---|
-| Google OAuth Client ID/Secret | 否 | 仅在启用 Google 登录时需要 |
-| DeepSeek / OpenAI / LLM API | **不需要** | OMR 在本地 Audiveris + homr 完成 |
-| `SESSION_SECRET` | 否 | 留空自动生成并持久化 |
-| RDS / 数据库 API | **不需要** | 内置 SQLite |
+| 第三方 API key | **不需要** | OMR 在本地 Audiveris + homr 完成 |
+| 数据库 API | **不需要** | 内置 SQLite |
 | 域名 + TLS | 否 | 公开部署建议配置 |
 
-不配置任何 key，`pnpm pm2:start` 也能跑通：邮箱/密码 + 每日免费额度。
+不配置任何 key，`pnpm pm2:start` 也能跑通：本地使用无额度限制，
+任务历史按浏览器 Cookie 归属，结果文件不会自动清理。

@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { I18nProvider, getLocale, translate } from "./lib/i18n";
-import { MeProvider } from "./lib/me";
+import { ConfigProvider } from "./lib/config";
 import { ToastProvider } from "./lib/toast";
 import "./styles.css";
 
@@ -40,9 +40,9 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <I18nProvider>
           <ToastProvider>
-            <MeProvider>
+            <ConfigProvider>
               <App />
-            </MeProvider>
+            </ConfigProvider>
           </ToastProvider>
         </I18nProvider>
       </BrowserRouter>

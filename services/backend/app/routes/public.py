@@ -1,15 +1,13 @@
-"""Health, public configuration and current-session endpoints."""
+"""Health and public configuration endpoints."""
 from __future__ import annotations
-
-from datetime import timedelta
 
 from fastapi import APIRouter, Depends
 
 from .. import __version__
-from ..auth import Actor, me_payload, refresh_actor
 from ..context import AppContext
-from ..deps import get_actor, get_context
+from ..deps import get_context
 from ..timeutil import iso, parse, utcnow
+from datetime import timedelta
 
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -43,11 +41,3 @@ def public_config(ctx: AppContext = Depends(get_context)) -> dict:
         "samples": len(ctx.samples),
         "server_time": iso(),
     }
-
-
-@router.get("/me")
-def me(actor: Actor = Depends(get_actor), ctx: AppContext = Depends(get_context)) -> dict:
-    refreshed = refresh_actor(actor, actor.user, ctx.db)
-    payload = me_payload(refreshed, ctx.settings)
-    payload["server_time"] = iso()
-    return payload

@@ -1,5 +1,5 @@
 import { getLocale, getLocaleTag, translate, type MessageKey } from "./i18n";
-import type { Mode, Quota } from "./types";
+import type { Mode } from "./types";
 
 export function classNames(...values: Array<string | false | null | undefined>): string {
   return values.filter(Boolean).join(" ");
@@ -78,26 +78,6 @@ export function statusTone(status: string): string {
       return "bad";
     default:
       return "neutral";
-  }
-}
-
-export function quotaText(quota: Quota): string {
-  if (quota.remaining_today <= 0) return translate(getLocale(), "quota.exhausted");
-  return translate(getLocale(), "quota.remaining", { count: quota.remaining_today });
-}
-
-export function resetText(quota: Quota): string {
-  if (!quota.resets_at) return "";
-  try {
-    return new Intl.DateTimeFormat(getLocaleTag(), {
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: quota.timezone || "Asia/Shanghai",
-    }).format(new Date(quota.resets_at));
-  } catch {
-    return "";
   }
 }
 

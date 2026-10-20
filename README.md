@@ -1,22 +1,26 @@
 # ScoreOMR · 乐谱截图转 MusicXML
 
 > 一张乐谱截图，变成可演奏、可编辑的乐谱。
-> Audiveris × homr 双引擎，完全免费、开源，无账户也能使用。
-> 公网入口：**pm2 + Node 网关 + 3015**；重活交给 Docker。
+> Audiveris × homr 双引擎，完全免费、开源。**本地运行，无需注册登录。**
 
 ![ScoreOMR 识别台](docs/screenshots/home.png)
 
-- 界面截图：[登录](docs/screenshots/login.png) · [账户](docs/screenshots/account.png) · [结果页](docs/screenshots/job-result.png) · [手机首页](docs/screenshots/mobile.png) · [手机结果页](docs/screenshots/mobile-job.png)
-- 部署：[pm2 + 3015 + Docker](docs/DEPLOY_PM2.md) · [全 Docker / 阿里云](docs/DEPLOY_ALIYUN.md)
+- 界面截图：[识别台](docs/screenshots/home.png) · [结果页](docs/screenshots/job-result.png) · [手机首页](docs/screenshots/mobile.png) · [手机结果页](docs/screenshots/mobile-job.png)
+- 部署：[pm2 + 3015 + Docker](docs/DEPLOY_PM2.md) · [全 Docker / 阿里云](docs/DEPLOY_ALIYUN.md) · [Zeabur 免费一键部署（公网 demo，iPhone 可用）](docs/DEPLOY_ZEABUR.md)
 - 架构与取舍：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - OMR 实测与三情形说明：[docs/OMR.md](docs/OMR.md)
 
 这是一个**免费、开源、可独立移动**的全栈工程：原来的三情形 OMR 研究代码
 （清晰印刷谱 / 手机照片 / 真实扫描）收在 `services/backend/omr_agent`，
-外面补齐了上传、队列、额度、结果下载、Google/邮箱登录、pm2 入口和容器化 worker。
+外面补齐了上传、队列、结果下载、pm2 入口和容器化 worker。
 
-**免费、开源，所有人使用同一每日免费额度。** 不填任何 API key 也能启动；Google 登录是可选项，
-不配置时邮箱/密码照常使用。
+**没有账户体系：** 不填任何 API key 也能启动；打开即用，自己上传、自己识别、
+自己下载。任务历史按浏览器会话（本地 Cookie）记录，仅自己可见。
+
+**没有每日额度：** 次数不限，唯一限制是同一时间只处理 1 个任务
+（`MAX_ACTIVE_JOBS` 可调）。
+
+**没有自动清理：** 上传与识别结果永久保存在本地数据卷，磁盘占用由你自己管理。
 
 界面是 **Bauhaus 骨架 + 禅意极简**：暖纸色、墨色、单一朱砂强调色；标题用宋体/衬线，
 正文用无衬线；只保留 1px 细线和大量留白。页面右上角有
@@ -41,15 +45,6 @@
   - **Audiveris 精校**：清晰印刷谱、数字 PDF，结构更完整；
   - **homr 鲁棒**：手机照片、低分辨率扫描、旧版刻印，抗退化更强。
 - 9 个带真值的演示样例（OLiMPiC，CC BY-SA 4.0），可直接看 note-F1。
-- 每日免费额度（默认 **1 次/天**，`DAILY_LIMIT` 可改）：
-  - 未登录：按 IP 计；
-  - 已登录：按账户计；
-  - 没有账户分级；所有用户使用同一每日免费额度。
-- 登录用于跨设备查看任务，完全可选：
-  - 邮箱 + 密码；
-  - Google 一键登录（需要自己配置 OAuth；不配置也能运行）。
-- 任务失败自动退还免费额度。
-- 结果默认保留 **7 天**，之后由后台任务清理，避免轻量服务器被磁盘占满。
 
 ### 为什么是“三情形 + 双引擎”
 
@@ -73,7 +68,7 @@
 
 ```mermaid
 flowchart LR
-  B[浏览器] -->|https://domain:3015| N[pm2 / Node<br/>静态 SPA + /api 反代]
+  B[浏览器] -->|http://localhost:3015| N[pm2 / Node<br/>静态 SPA + /api 反代]
   N -->|127.0.0.1:8000| A[api 容器<br/>FastAPI + SQLite]
   A --- V[(scoreomr-data<br/>SQLite + 上传/结果)]
   K[worker 容器<br/>Audiveris + homr] --- V
@@ -82,7 +77,7 @@ flowchart LR
 | 组件 | 作用 | 运行方式 |
 |---|---|---|
 | `apps/web/server.mjs` | 静态 SPA + `/api` 反代 + 可选 TLS | **pm2**，端口 3015 |
-| `api` | 账户、Google、额度、任务、文件 | Docker，仅 127.0.0.1:8000 |
+| `api` | 任务、文件 | Docker，仅 127.0.0.1:8000 |
 | `worker` | 消费 SQLite 队列、跑 OMR、写结果 | Docker，唯一的重镜像 |
 | `scoreomr-data` | SQLite + 上传 + 结果 | 一个命名卷 |
 | `web` 容器 | 全 Docker 备选方案 | 可选，不参与 pm2 路径 |
@@ -92,8 +87,8 @@ flowchart LR
 入口，正好匹配 3015 + pm2 的部署习惯。
 
 **为什么不用 Postgres / Redis / Celery：** 单机、低并发，真正的硬需求是
-「原子扣减每日额度」和「持久化任务队列」；SQLite 的 WAL + `BEGIN IMMEDIATE`
-已经保证。少两个容器、少一组密码和备份对象。
+「持久化任务队列」；SQLite 的 WAL + `BEGIN IMMEDIATE` 已经保证。少两个容器、
+少一组密码和备份对象。
 
 ---
 
@@ -133,7 +128,7 @@ cd services/backend
 .venv/bin/python -m omr_agent.route 你的截图.png --out /tmp/out
 ```
 
-### 3.2 服务器：pm2 + 3015（推荐）
+### 3.2 服务器：pm2 + 3015（自用推荐）
 
 **前置安装**（Ubuntu 24.04）：完整说明见
 [docs/DEPLOY_PM2.md](docs/DEPLOY_PM2.md) 第 2 节；最短版本：
@@ -163,21 +158,16 @@ cp .env.example .env
 nano .env
 ```
 
-第一次先按 **HTTP 测试**填，最容易确认能跑：
+一个可用的最小配置（无账户、无额度、无自动清理）：
 
 ```dotenv
 APP_ENV=production
 APP_URL=http://<服务器公网IP>:3015
-DAILY_LIMIT=1
-
-# 可选；不填也能运行，邮箱/密码照常
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
 
 PORT=3015
 API_HOST_PORT=8000
 
-# 先用 HTTP；证书配置见部署文档
+# 可选；本机直接用 HTTP 即可
 TLS_CERT_FILE=
 TLS_KEY_FILE=
 EDGE_TRUST_PROXY=0
@@ -217,11 +207,10 @@ curl -fsS http://127.0.0.1:3015/api/health
 pm2 status
 ```
 
-> **公开 HTTPS：** 想用域名 + HTTPS（以及 Google 登录），把 `APP_URL` 改成
+> **公开 HTTPS（可选）：** 想用域名 + HTTPS，把 `APP_URL` 改成
 > `https://omr.example.com:3015`，按
 > [DEPLOY_PM2.md](docs/DEPLOY_PM2.md) 第 4 节申请证书并填 `TLS_CERT_FILE` /
 > `TLS_KEY_FILE`，然后 `pm2 restart scoreomr --update-env`。
-> Google OAuth 的 authorized redirect URI 必须与 `APP_URL` 完全一致。
 >
 > **`pm2 startup`** 会打印一条需要 `sudo` 执行的命令；执行一次即可开机自启。
 > 不要在没有 `apps/web/dist` 和 api 容器的情况下只跑 `pm2 start npm ...`；
@@ -231,7 +220,7 @@ pm2 status
 
 ```bash
 cp .env.example .env
-# 设置 APP_URL、DOMAIN；不填 Google key 也能跑
+# 设置 APP_URL、DOMAIN
 docker compose -f compose.yml -f compose.tls.yml up -d --build
 ```
 
@@ -240,72 +229,30 @@ API/worker 镜像，二选一即可。
 
 ---
 
-## 4. 登录、额度与隐私
+## 4. 隐私与任务归属
 
-### 登录（可选）
-
-```text
-登录页 /login
-  → GET /api/auth/google/start        （如果配置了 Google）
-  → 302 accounts.google.com（state cookie）
-  → GET /api/auth/google/callback
-  → 校验 state + 服务端换 token + userinfo
-  → google_id + verified email 建号/绑号
-  → 设置本站会话 cookie
-  → 回到 next（默认 /account）
-```
-
-- 不用 NextAuth；本站用数据库会话 + HttpOnly cookie。
-- 没有 NextAuth 密钥；`SESSION_SECRET` 留空会自动生成并持久化。
-- 如果 Google 未配置，登录页只显示邮箱/密码，服务端完全正常。
-- 同邮箱已有密码账户**不会自动合并**；先用密码登录，再在账户页显式绑定 Google。
-- 只保存邮箱、Google `sub` 和密码哈希（密码账户）；不保存头像或 Google 昵称。
-- 没有邮件营销、没有分析脚本、没有支付数据。
-
-### 每日额度
-
-| 身份 | 免费额度 |
-|---|---|
-| 未登录 | 每天 `DAILY_LIMIT` 次（按 IP） |
-| 已登录 | 每天 `DAILY_LIMIT` 次（按账户） |
-
-- 创建任务时原子扣减；失败退还。
-- 清 cookie 不能重置匿名额度；同一 NAT 共享额度。
-- 登录时会把当前浏览器里尚未归属的匿名任务自动归入账户。
-
-### 需要哪些 key？
-
-| 项 | 必需？ | 用途 |
-|---|---|---|
-| Google OAuth Client ID/Secret | 否 | 只在想启用 Google 登录时需要 |
-| DeepSeek / OpenAI / LLM API | **不需要** | OMR 完全由本地 Audiveris + homr 完成 |
-| RDS / 数据库 API | **不需要** | 内置 SQLite |
-| `SESSION_SECRET` | 否 | 留空自动生成并持久化 |
-| 域名 + TLS | 否 | 公开部署建议配置 |
-
-Google key 只放在服务器的 **`scoreomr/.env`**（已 gitignore），不会进入前端
-bundle。仓库里只有空占位符和测试假 key；没有真实凭据。
+- **没有账户、没有注册、没有登录**，也没有任何第三方 API key 依赖。
+- 任务历史按浏览器在本地写入的匿名 Cookie（`omr_anon`）归属：
+  - 同一个浏览器打开「我的任务」能看到自己的历史；
+  - 换浏览器、换设备或清除 Cookie 后看不到之前的任务；
+  - 清 Cookie 不能「抢看」别人的任务，因为归属是随机的浏览器标识。
+- 结果文件永久保存在本地数据卷（`scoreomr-data` 或 `.dev-data/`），不会自动删除。
+  磁盘占用由自己管理；体积过大时用 `pnpm docker:reset` 清空重来。
 
 ---
 
 ## 5. 配置
 
-完整注释见 [.env.example](.env.example)。最常改的：
+可在 `.env` 中覆盖的全部变量见 [.env.example](.env.example)。最常改的：
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `APP_ENV` | `production` | 生产禁止 `OMR_MOCK=true` |
-| `APP_URL` | `http://localhost:3015` | 公开地址；HTTPS 时自动 Secure cookie |
-| `DAILY_LIMIT` | `1` | 未登录/登录用户的每日免费次数 |
-| `PORT` | `3015` | pm2 Node 入口端口 |
-| `API_HOST_PORT` | `8000` | API 容器发布到宿主回环的端口 |
-| `TLS_CERT_FILE` / `TLS_KEY_FILE` | 空 | Node 直接对 3015 提供 HTTPS |
-| `EDGE_TRUST_PROXY` | `0` | Node 前面有 Cloudflare/Caddy 时设 1 |
-| `GOOGLE_CLIENT_ID` / `SECRET` | 空 | 可选 Google OAuth |
-| `SESSION_SECRET` | 空 | 留空自动生成并持久化 |
-| `SESSION_COOKIE_SECURE` | 空 | 留空按 `APP_URL` 自动判断 |
+| `APP_URL` | `http://localhost:3015` | 公开地址；HTTPS 时 Cookie 自动带 Secure |
 | `MAX_UPLOAD_MB` | `20` | 单文件上限 |
-| `JOB_RETENTION_DAYS` | `7` | 结果保留天数 |
+| `JOB_TIMEOUT_SECONDS` | `900` | 单个任务的引擎超时 |
+| `MAX_ACTIVE_JOBS` | `1` | 同一浏览器同时最多任务数 |
+| `MAX_QUEUE_LENGTH` | `20` | 队列长度上限 |
 | `OMR_MOCK` | `false` | 生产必须 false；`pnpm dev` 默认 true |
 | `AUDIVERIS_HEAP` | `1536m` | 构建时写入 Audiveris 配置 |
 | `WORKER_PLATFORM` | `linux/amd64` | Audiveris 只有 amd64 Linux 包 |
@@ -321,7 +268,6 @@ bundle。仓库里只有空占位符和测试假 key；没有真实凭据。
 
 - 命名卷：`scoreomr-data` → 容器内 `/data`
   - `/data/scoreomr.db`：SQLite（WAL）
-  - `/data/session_secret`：自动生成的 cookie 密钥
   - `/data/jobs/<id>/`：上传与结果
 - 备份：
 
@@ -336,7 +282,7 @@ pnpm db:backup
 bash scripts/restore.sh backups/scoreomr-YYYYmmdd-HHMMSS.db
 ```
 
-- 迁移到另一台服务器：
+- 迁移到另一台机器：
   1. `pnpm db:backup`；
   2. 把整个文件夹和备份文件拷走；
   3. 新机器 `pnpm install && pnpm build`，启动 api/worker 容器；
@@ -346,7 +292,7 @@ bash scripts/restore.sh backups/scoreomr-YYYYmmdd-HHMMSS.db
      打包卷再解压。
 - 数据库里保存的路径都是相对 `DATA_DIR` 的，工程中没有写死本机绝对路径；
   `pnpm build`、`pnpm dev`、`pm2 start`、`docker compose` 均可在新目录直接运行。
-- **从旧版本升级：** 建议直接清空旧数据卷（`pnpm docker:reset`）后重新部署。
+- **数据库结构变更：** 建议直接清空旧数据卷（`pnpm docker:reset`）后重新部署。
 
 ---
 
@@ -356,18 +302,17 @@ bash scripts/restore.sh backups/scoreomr-YYYYmmdd-HHMMSS.db
 scoreomr/
 ├── apps/web/
 │   ├── server.mjs            3015 Node 网关：静态文件 + /api 反代 + 可选 TLS
-│   ├── src/pages/            识别台 / 结果 / 账户 / 登录
+│   ├── src/pages/            识别台 / 结果 / 我的任务 / 404
 │   ├── src/lib/i18n.tsx      中/英/法/俄四语词典与 Locale 切换
 │   └── src/styles.css        Bauhaus 骨架 + 禅意极简设计系统
 ├── services/backend/
-│   ├── app/                  FastAPI、SQLite、Google OAuth、worker
-│   │   ├── google_auth.py    Google 授权码流程（可选）
+│   ├── app/                  FastAPI、SQLite、匿名 Cookie 归属、worker
 │   │   ├── worker.py         队列消费与引擎调度
-│   │   ├── db.py             schema + 原子额度/任务 + 用户
-│   │   └── routes/           auth / jobs / public
+│   │   ├── db.py             schema + 原子任务队列
+│   │   └── routes/           jobs / public
 │   ├── omr_agent/            原三情形 OMR 核心（预处理/引擎/指标/播放/选优）
 │   ├── samples/              9 个演示图 + 真值 + 授权
-│   ├── tests/                37 个后端测试
+│   ├── tests/                20 个后端测试
 │   └── pyproject.toml / uv.lock
 ├── deploy/                   Dockerfile ×3、nginx.conf、Caddyfile
 ├── compose.yml               默认全栈
@@ -393,13 +338,11 @@ pnpm lint          # python compileall + tsc
 
 后端测试覆盖：
 
-- Google OAuth state/回调/新用户/绑定/未验证邮箱（可选功能）；
-- 匿名/登录用户的每日免费额度与原子扣减；
-- 失败退款、并发任务冲突、队列恢复；
-- 注册/登录/登出、会话 cookie；
-- 任务归属隔离（用户 A 看不到 B；换浏览器看不到匿名任务）；
-- PNG/PDF 上传、PDF 首次栅格化、GT DOCTYPE 拒绝；
-- mock worker 端到端：生成 MusicXML/MIDI/WAV/CSV/PNG、清理中间目录、过期清理。
+- 匿名 Cookie 归属：换浏览器看不到对方任务，历史列表只含自己的任务；
+- 上传格式白名单（PNG/PDF）、GT DOCTYPE 拒绝、允许文件名过滤；
+- worker 端到端：生成 MusicXML/MIDI/WAV/CSV/PNG、清理中间目录、孤儿任务重排队、
+  超时任务超过尝试次数后标记失败；
+- 健康检查与公开配置、生产环境拒绝 mock。
 
 前端当前是 `tsc --noEmit + vite build` 验收；页面用 Chrome 在桌面 1440px、
 手机 390px 下截图检查，并逐页切换中文 / English / Français / Русский 检查布局。
@@ -408,13 +351,13 @@ pnpm lint          # python compileall + tsc
 
 ## 9. 已知限制
 
-- 单机架构：一个 API、一个 worker、SQLite。适合小型公开演示，不适合多机水平扩展。
+- 单机架构：一个 API、一个 worker、SQLite。适合个人自用，不适合多机水平扩展。
 - OMR 不是 100% 准确。低分辨率、复杂钢琴谱、旧版刻印仍会错；结果页会标记
   “建议复核”。请试听并检查 MusicXML。
 - PDF 只识别第一页；一次只处理一张/一页。
-- 每日额度有限，防止公开服务器被滥用；可以通过 `DAILY_LIMIT` 调整。
-- 注册没有邮箱验证/找回密码；Google 用户不需要密码，邮箱用户请自行保存。
-- 结果默认保留 7 天，过期不可下载。
+- 任务历史按浏览器 Cookie 归属：换浏览器或清 Cookie 后历史不可见（结果文件
+  仍在磁盘上，用文件管理直接访问数据卷可找回）。
+- 结果文件不会自动清理，磁盘占用需自己管理；AB 卷迁移见第 6 节。
 - 演示样例来自 OLiMPiC，CC BY-SA 4.0；保留 `services/backend/samples/ATTRIBUTION.md`。
 - **许可证：** 本工程代码 MIT；Audiveris 与 homr 是 **AGPL-3.0**。通过网络提供
   识别服务时请遵守 AGPL 源码提供义务；闭源使用前请评估或取得另行授权。
@@ -429,7 +372,7 @@ cd scoreomr
 git init
 git branch -M main
 git add .
-git commit -m "ScoreOMR: free dual-engine OMR, pm2 3015, optional Google login"
+git commit -m "ScoreOMR: local dual-engine OMR, no accounts, no quotas"
 git remote add origin git@github.com:<你的账号>/<仓库名>.git
 git push -u origin main
 ```
@@ -438,7 +381,7 @@ git push -u origin main
 
 - **仓库根目录就是 `scoreomr/`**，不要把文件夹再套一层；
 - `.env` 没有被加入（`.gitignore` 已忽略）；
-- 没有真实 Google key、域名私密信息或服务器凭据；
+- 没有真实的密钥、域名私密信息或服务器凭据；
 - `services/backend/samples/` 的 OLiMPiC 授权文件一起提交；
 - GitHub Actions：`.github/workflows/ci.yml` 已就绪。
 

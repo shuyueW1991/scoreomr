@@ -27,7 +27,6 @@ from .uploads import resolve_data_path
 log = logging.getLogger(__name__)
 
 STALE_SECONDS = 90
-CLEANUP_INTERVAL = 3600
 RECOVER_INTERVAL = 60
 MAX_ATTEMPTS = 2
 
@@ -46,7 +45,6 @@ class Worker:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
-        self._last_cleanup = 0.0
         self._last_recover = 0.0
         self._configure_engine_env()
 
@@ -135,8 +133,7 @@ class Worker:
             if int(job.get("attempts") or 0) >= MAX_ATTEMPTS:
                 self.ctx.db.fail_job(
                     job["id"],
-                    "识别进程意外中断，已自动退还本次免费额度。请重新提交。",
-                    refund=True,
+                    "识别进程意外中断，请重新提交。",
                 )
                 log.warning("stale job %s failed after %s attempts", job["id"], job.get("attempts"))
             else:
@@ -208,35 +205,11 @@ class Worker:
             message = str(exc)
         else:
             log.error("job %s crashed: %s\n%s", job_id, exc, traceback.format_exc())
-            message = "识别过程出现内部错误，本次免费额度已退还。请稍后重试或换一张图片。"
+            message = "识别过程出现内部错误。请稍后重试或换一张图片。"
         try:
-            self.ctx.db.fail_job(job_id, message, refund=True)
+            self.ctx.db.fail_job(job_id, message)
         except Exception:  # noqa: BLE001
             log.exception("could not mark job %s as failed", job_id)
-
-    # ------------------------------------------------------------- maintenance
-    def cleanup(self) -> None:
-        cutoff = iso(utcnow() - timedelta(days=self.settings.job_retention_days))
-        rows = self.ctx.db.jobs_to_cleanup(cutoff)
-        for row in rows:
-            try:
-                # result_dir is jobs/<id>/result; removing the parent also
-                # removes input.png and gt.* so no orphaned uploads remain.
-                result_dir = self._resolve(row["result_dir"])
-                shutil.rmtree(result_dir.parent, ignore_errors=True)
-                self.ctx.db.mark_files_deleted(row["id"])
-            except Exception:  # noqa: BLE001
-                log.exception("cleanup failed for %s", row["id"])
-        self.ctx.db.purge_sessions()
-        scratch = self.settings.scratch_dir
-        if scratch.exists():
-            for child in scratch.iterdir():
-                try:
-                    if child.is_dir() and time.time() - child.stat().st_mtime > 2 * 86400:
-                        shutil.rmtree(child, ignore_errors=True)
-                except OSError:
-                    pass
-        log.info("cleanup: %s job directories removed", len(rows))
 
     # ------------------------------------------------------------------- loop
     def run_forever(self) -> None:
@@ -249,8 +222,6 @@ class Worker:
         if not self.settings.omr_mock and not any(availability.values()):
             log.error("no OMR engine available: check AUDIVERIS_BIN / HOMR_BIN in the worker image")
         self.recover_stale()
-        self.cleanup()
-        self._last_cleanup = time.monotonic()
         self._last_recover = time.monotonic()
 
         while not self._stop.is_set():
@@ -258,9 +229,6 @@ class Worker:
             if now - self._last_recover > RECOVER_INTERVAL:
                 self.recover_stale()
                 self._last_recover = now
-            if now - self._last_cleanup > CLEANUP_INTERVAL:
-                self.cleanup()
-                self._last_cleanup = now
 
             try:
                 job = self.ctx.db.claim_next_job(self.worker_id)

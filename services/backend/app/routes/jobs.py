@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from ..auth import Actor, quota_payload, refresh_actor
+from ..auth import Actor
 from ..context import AppContext, public_sample
-from ..deps import enforce_limit, get_actor, get_context
+from ..deps import get_actor, get_context
 from ..errors import NotFound
 from ..jobs import (
     accessible_job,
@@ -68,37 +68,28 @@ def sample_image(sample_id: str, ctx: AppContext = Depends(get_context)) -> File
 def run_sample(
     sample_id: str,
     payload: RunSample,
-    request: Request,
     actor: Actor = Depends(get_actor),
     ctx: AppContext = Depends(get_context),
 ) -> dict:
-    enforce_limit(request, ctx, ctx.upload_limiter, "sample", "操作过于频繁")
     job = create_sample_job(ctx, actor, sample_id, payload.mode)
-    updated = refresh_actor(actor, actor.user, ctx.db)
-    return {"job": summary(job), "quota": quota_payload(updated, ctx.settings)}
+    return {"job": summary(job)}
 
 
 @router.post("/jobs", status_code=201)
 async def create_job(
-    request: Request,
     file: UploadFile = File(...),
     mode: str = Form("compare"),
     gt: UploadFile | None = File(default=None),
     actor: Actor = Depends(get_actor),
     ctx: AppContext = Depends(get_context),
 ) -> dict:
-    enforce_limit(request, ctx, ctx.upload_limiter, "upload", "上传过于频繁，请稍后再试")
     job = await create_upload_job(ctx, actor, file, mode, gt)
-    updated = refresh_actor(actor, actor.user, ctx.db)
-    return {"job": summary(job), "quota": quota_payload(updated, ctx.settings)}
+    return {"job": summary(job)}
 
 
 @router.get("/jobs")
 def list_jobs(actor: Actor = Depends(get_actor), ctx: AppContext = Depends(get_context)) -> dict:
-    return {
-        "jobs": history(ctx, actor),
-        "quota": quota_payload(actor, ctx.settings),
-    }
+    return {"jobs": history(ctx, actor)}
 
 
 @router.get("/jobs/{job_id}")

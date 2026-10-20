@@ -101,21 +101,12 @@ cp .env.example .env
 nano .env
 ```
 
-最小生产配置：
+最小生产配置（无账户、无额度、无自动清理）：
 
 ```dotenv
 APP_ENV=production
 APP_URL=https://omr.example.com
 DOMAIN=omr.example.com
-
-DAILY_LIMIT=1
-
-# Google 登录可选；不填也能跑，邮箱/密码正常工作
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
-SESSION_SECRET=                       # 留空，首次启动自动生成并持久化
-SESSION_COOKIE_SECURE=                # 留空，HTTPS 自动 Secure
 
 WORKER_PLATFORM=linux/amd64
 AUDIVERIS_HEAP=1536m                  # 2 GB 机器改成 1024m
@@ -126,8 +117,8 @@ NPM_REGISTRY=https://registry.npmmirror.com
 APT_MIRROR=mirrors.aliyun.com
 ```
 
-> 不要把 `.env` 提交到 Git。`SESSION_SECRET` 留空时会在
-> `/data/session_secret` 生成一个 0600 的随机值，后续重启/升级会复用。
+> 不要把 `.env` 提交到 Git。任务归属只依赖浏览器匿名 Cookie，不保存任何
+> 密钥或账户数据；Cookie 的 `Secure` 标记由 `APP_URL` 是否为 `https://` 决定。
 
 ### 4.3 如果 GitHub 下载失败
 
@@ -218,38 +209,14 @@ worker 刚启动时 `online` 可能短暂为 false；90 秒内没有心跳才视
 
 ---
 
-## 5. Google 登录（可选）
+## 5. 账户、额度与任务归属
 
-不配置时完全正常，登录页只显示邮箱/密码。需要 Google 一键登录时：
-
-1. Google Cloud Console → OAuth consent screen（External）：
-   scopes 只需要 `openid`、`email`、`profile`。
-2. Credentials → OAuth client ID → Web application：
-   - Authorised redirect URI：`https://omr.example.com/api/auth/google/callback`
-     （必须与 `APP_URL` 完全一致；pm2 + 3015 路径则带 `:3015`）。
-3. `.env`：
-
-```dotenv
-GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxx
-GOOGLE_REDIRECT_URI=https://omr.example.com/api/auth/google/callback
-```
-
-Google 登录即注册；同邮箱已有密码账户不会自动合并，先密码登录再在账户页绑定。
-只保存邮箱和 Google `sub`，不保存头像/昵称。
-
-### 每日免费额度
-
-```dotenv
-DAILY_LIMIT=1
-```
-
-未登录按 IP、登录后按账户计算；任务失败退还。
-重建 API 容器后生效：
-
-```bash
-docker compose up -d api worker
-```
+**本工具没有账户系统：** 无注册、无登录、无 Google OAuth，也不依赖任何第三方
+API key。没有每日额度限制；默认同一浏览器同时只处理 1 个任务
+（`MAX_ACTIVE_JOBS` 可调）。任务历史按浏览器在本地写入的匿名 Cookie
+（`omr_anon`）归属——同一个浏览器打开「我的任务」能看到自己的记录；
+换浏览器、换设备或清除 Cookie 后历史不可见（结果文件仍留在数据卷里）。
+结果文件不会自动清理。
 
 ---
 
@@ -264,9 +231,9 @@ bash scripts/backup.sh
 # => backups/scoreomr-YYYYmmdd-HHMMSS.db
 ```
 
-建议每天 cron 一次，并把 `backups/` 同步到 OSS 或另一台机器。结果文件默认只保留
-7 天，数据库备份不包含结果文件；如果要保留结果，按 [README](../README.md#6-数据备份与迁移)
-里的方式打包数据卷。
+建议每天 cron 一次，并把 `backups/` 同步到 OSS 或另一台机器。结果文件不会自动
+清理；如果要把结果一起迁移，按 [README](../README.md#6-数据备份与迁移) 里的方式
+打包数据卷。
 
 ### 更新
 
@@ -312,14 +279,13 @@ bash scripts/restore.sh backups/xxx.db
 - 内存不足：`dmesg | tail` 看 OOM；把 `AUDIVERIS_HEAP` 降到 1024m，或升级到 4 GB；
 - 任务卡住：worker 心跳过期后会自动重排；最多尝试 2 次。
 
-**所有未注册用户共用 1 次额度**
+**「我的任务」看不到记录**
 
-- 说明代理没有把真实 IP 传进来。检查：
-  - 是否直接访问了 `http://IP:8080`（compose 绑定 127.0.0.1，正常访问不到）；
-  - 宿主 Nginx 是否设置了 `proxy_set_header X-Forwarded-For $remote_addr;`；
-  - 如用 Caddy，`deploy/Caddyfile` 已经覆盖了 XFF，不要在外层再加一层不改
-    XFF 的代理。
-- 同一 NAT 下多个匿名用户共享额度是设计行为；注册后按账户计。
+- 换过浏览器或清除过 Cookie 后，任务按旧的匿名 ID 归属，新浏览器看不到历史；
+  结果文件仍留在数据卷里，可通过备份/迁移找回。
+- 如果配置了宿主 Nginx，确认 `proxy_set_header X-Forwarded-For $remote_addr;`
+  且 Cookie（`omr_anon`）能正常回传；不要再用外层代理改 XFF。
+- 没有「未注册用户」概念：任务只按浏览器 Cookie 归属，不按 IP 计算。
 
 **PDF 上传报“无法解析”**
 
@@ -335,7 +301,7 @@ bash scripts/restore.sh backups/xxx.db
 **用宿主 Nginx 代替 Caddy**
 
 web 容器只监听 `127.0.0.1:8080`。宿主 Nginx 必须**覆盖**而不是追加
-`X-Forwarded-For`，否则匿名额度可能按代理 IP 计算或被伪造：
+`X-Forwarded-For`，才能保证 Cookie 归属（`omr_anon`）来自真实来源：
 
 ```nginx
 server {
@@ -359,7 +325,8 @@ server {
 **磁盘满了**
 
 - `docker system df`；镜像/构建缓存占大头；
-- 结果默认 7 天清理；可以调小 `JOB_RETENTION_DAYS`；
+- 结果与上传会**永久保留**在数据卷，体积由自己管理；不需要的结果直接
+  `docker compose down -v` 清空数据卷重来（会丢失全部任务历史）；
 - `docker compose down` 不会删数据卷，`down -v` 会；不要随手 `-v`。
 
 ---
@@ -367,10 +334,10 @@ server {
 ## 8. 安全清单
 
 - [ ] 公网只开 22/80/443；API/worker/8080 不对公网开放。
-- [ ] `APP_ENV=production`、`OMR_MOCK=false`、`DAILY_LIMIT` 符合预期。
+- [ ] `APP_ENV=production`、`OMR_MOCK=false` 符合预期。
 - [ ] `.env` 权限 600，不提交 Git。
-- [ ] HTTPS 正常，`SESSION_COOKIE_SECURE` 生效（看浏览器 cookie 的 Secure 标记）。
-- [ ] 未登录和登录用户各完成一次识别，额度按预期扣减。
+- [ ] HTTPS 正常，浏览器 cookie 带 `Secure` 标记（`APP_URL` 为 https 时自动）。
+- [ ] 上传一张图并打开「我的任务」确认记录可见；换浏览器后应不可见。
 - [ ] 定期 `pnpm db:backup`，备份离开本机。
 - [ ] 升级前打快照。
 - [ ] 阅读 [NOTICE](../NOTICE) 中 Audiveris/homr 的 AGPL 义务。

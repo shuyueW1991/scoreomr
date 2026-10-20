@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, api } from "../lib/api";
-import { classNames, formatPct, resetText } from "../lib/format";
+import { classNames, formatPct } from "../lib/format";
 import { errorMessage, useI18n, type MessageKey } from "../lib/i18n";
-import { useMe } from "../lib/me";
+import { useConfig } from "../lib/config";
 import { useToast } from "../lib/toast";
 import type { Mode, Sample } from "../lib/types";
 import { SampleGrid } from "../components/SampleGrid";
@@ -12,7 +12,6 @@ import { UploadPanel } from "../components/UploadPanel";
 import {
   ArrowRightIcon,
   CameraIcon,
-  GoogleIcon,
   LayersIcon,
   ScanIcon,
   ShieldIcon,
@@ -62,7 +61,7 @@ function EvidenceBar({ value, tone }: { value: number | null; tone: "a" | "h" })
 }
 
 export function StudioPage() {
-  const { me, config, loading, refresh, error } = useMe();
+  const { config, loading, error } = useConfig();
   const { t } = useI18n();
   const { notify } = useToast();
   const navigate = useNavigate();
@@ -87,20 +86,13 @@ export function StudioPage() {
   }, [t]);
 
   async function runSample(sample: Sample) {
-    if (!me || busySample) return;
-    if ((me.quota.remaining_today ?? 0) <= 0) {
-      notify(t("error.quota_exceeded"), "error");
-      return;
-    }
+    if (busySample) return;
     setBusySample(sample.id);
     try {
       const result = await api.runSample(sample.id, "compare");
-      await refresh();
       navigate(`/jobs/${result.job.id}`);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "quota_exceeded") {
-        notify(t("error.quota_exceeded"), "error");
-      } else if (err instanceof ApiError && err.code === "active_job_exists") {
+      if (err instanceof ApiError && err.code === "active_job_exists") {
         const activeJob = typeof err.extra.active_job === "string" ? err.extra.active_job : null;
         if (activeJob) {
           notify(t("error.active_job_exists"), "info");
@@ -124,7 +116,7 @@ export function StudioPage() {
     );
   }
 
-  if (!config || !me) {
+  if (!config) {
     return (
       <section className="section narrow">
         <div className="empty-state">
@@ -138,8 +130,6 @@ export function StudioPage() {
       </section>
     );
   }
-
-  const exhausted = (me.quota.remaining_today ?? 0) <= 0;
 
   return (
     <>
@@ -166,16 +156,11 @@ export function StudioPage() {
             </div>
             <ul className="hero-points">
               <li>
-                <ShieldIcon size={16} /> {t("home.pointFree", { count: config.daily_limit })}
+                <ShieldIcon size={16} /> {t("home.pointLocal")}
               </li>
               <li>
                 <CameraIcon size={16} /> {t("home.pointInput")}
               </li>
-              {config.google_auth_enabled && (
-                <li>
-                  <GoogleIcon size={16} /> {t("home.pointGoogle")}
-                </li>
-              )}
             </ul>
             <div className="hero-specs">
               <span><b>{t("home.spec1a")}</b> {t("home.spec1b")}</span>
@@ -187,11 +172,9 @@ export function StudioPage() {
           <div className="hero-panel">
             <UploadPanel
               config={config}
-              me={me}
               mode={mode}
               setMode={setMode}
               onCreated={(jobId) => navigate(`/jobs/${jobId}`)}
-              refreshMe={refresh}
             />
           </div>
         </div>
@@ -247,21 +230,14 @@ export function StudioPage() {
       </section>
 
       <section className="section samples-section" id="samples">
-        <div className="section-heading section-heading-split">
-          <div>
-            <span className="eyebrow">{t("home.samples.eyebrow")}</span>
-            <h2>{t("home.samples.title")}</h2>
-            <p>{t("home.samples.lede")}</p>
-          </div>
-          <div className={classNames("quota-callout", exhausted && "quota-callout-empty")}>
-            <span>{t("home.samples.quota")}</span>
-            <strong>{me.quota.remaining_today} / {me.quota.daily_limit}</strong>
-            <small>{t("home.samples.reset", { time: resetText(me.quota) })}</small>
-          </div>
+        <div className="section-heading">
+          <span className="eyebrow">{t("home.samples.eyebrow")}</span>
+          <h2>{t("home.samples.title")}</h2>
+          <p>{t("home.samples.lede")}</p>
         </div>
 
         {samples ? (
-          <SampleGrid samples={samples} busyId={busySample} onRun={runSample} disabled={exhausted} />
+          <SampleGrid samples={samples} busyId={busySample} onRun={runSample} />
         ) : samplesError ? (
           <div className="inline-error">{t("home.samples.loadError", { message: samplesError })}</div>
         ) : (

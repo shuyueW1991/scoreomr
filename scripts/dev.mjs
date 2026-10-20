@@ -19,7 +19,7 @@ if (!existsSync(python)) {
   process.exit(1);
 }
 
-// Load optional local Google OAuth settings from .env when present.
+// Load optional local settings from .env when present.
 const envFile = path.join(root, ".env");
 if (existsSync(envFile) && typeof process.loadEnvFile === "function") {
   try {
@@ -40,15 +40,11 @@ const env = {
   ...process.env,
   APP_ENV: "development",
   APP_URL: `http://127.0.0.1:${webPort}`,
-  GOOGLE_REDIRECT_URI: `http://127.0.0.1:${webPort}/api/auth/google/callback`,
   API_PROXY_TARGET: `http://127.0.0.1:${apiPort}`,
   DATA_DIR: dataDir,
   DATABASE_PATH: path.join(dataDir, "scoreomr.db"),
   SAMPLES_DIR: path.join(backend, "samples"),
-  SESSION_COOKIE_SECURE: "false",
   OMR_MOCK: process.env.OMR_MOCK || "true",
-  DAILY_LIMIT: process.env.DAILY_LIMIT || "1",
-  TRUST_PROXY: "true",
   MPLCONFIGDIR: mplDir,
   PYTHONUNBUFFERED: "1",
   UV_CACHE_DIR: path.join(root, ".uv-cache"),

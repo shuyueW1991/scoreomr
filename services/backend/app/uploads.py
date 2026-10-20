@@ -166,7 +166,7 @@ def result_file(settings: Settings, job: dict, name: str) -> Path | None:
         "piano_roll.png",
         "report.json",
     }
-    if name not in allowed or job.get("files_deleted"):
+    if name not in allowed:
         return None
     if name == "input.png":
         path = resolve_data_path(settings, job["input_path"])

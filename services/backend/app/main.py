@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import timedelta
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -22,10 +21,8 @@ from .auth import ANON_COOKIE, ANON_MAX_AGE
 from .config import Settings
 from .context import AppContext
 from .errors import DomainError
-from .routes import auth as auth_routes
 from .routes import jobs as job_routes
 from .routes import public as public_routes
-from .timeutil import day_key, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -52,25 +49,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "ScoreOMR %s starting env=%s omr_mock=%s",
             __version__, settings.app_env, settings.omr_mock,
         )
-        try:
-            ctx.db.purge_sessions()
-            # Keep three months of quota rows for auditing; older rows are noise.
-            old_day = day_key(utcnow() - timedelta(days=90), settings.tz)
-            ctx.db.purge_usage_before(old_day)
-        except Exception:  # noqa: BLE001 - maintenance must never block boot
-            log.exception("startup maintenance failed")
         yield
-        try:
-            ctx.google.close()
-        except Exception:  # noqa: BLE001
-            pass
 
     docs = None if settings.is_production else "/api/docs"
     openapi = None if settings.is_production else "/api/openapi.json"
     app = FastAPI(
         title=f"{settings.app_name} API",
         version=__version__,
-        description="Score screenshot -> MusicXML / MIDI / WAV, with daily free quotas.",
+        description="Score screenshot -> MusicXML / MIDI / WAV.",
         docs_url=docs,
         redoc_url=None,
         openapi_url=openapi,
@@ -81,15 +67,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.middleware("http")
     async def api_headers(request: Request, call_next):
         path = request.url.path
-        # Reject absurd auth bodies before pydantic allocates anything large.
-        if path in {"/api/auth/login", "/api/auth/register"}:
-            try:
-                length = int(request.headers.get("content-length") or 0)
-            except ValueError:
-                length = 0
-            if length > 16 * 1024:
-                return _error_response(413, "file_too_large", "请求体过大")
-
         response = await call_next(request)
 
         state_anon = getattr(request.state, "anon_id", None)
@@ -105,7 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 max_age=ANON_MAX_AGE,
                 httponly=True,
                 samesite="lax",
-                secure=settings.secure_cookies,
+                secure=settings.cookies_secure,
                 path="/",
             )
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -146,7 +123,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return _error_response(500, "internal_error", "服务器内部错误，请稍后重试")
 
     app.include_router(public_routes.router)
-    app.include_router(auth_routes.router)
     app.include_router(job_routes.router)
 
     @app.get("/", include_in_schema=False)

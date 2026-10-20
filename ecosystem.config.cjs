@@ -36,7 +36,7 @@ module.exports = {
       merge_logs: true,
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
       // Only the web tier's own settings go into pm2's process env. Keeping
-      // Google/session secrets out of this object avoids writing them
+      // deployment secrets out of this object avoids writing them
       // into ~/.pm2/dump.pm2 on `pm2 save`; server.mjs loads .env itself.
       env: {
         NODE_ENV: "production",

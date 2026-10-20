@@ -13,12 +13,6 @@ class DomainError(Exception):
         self.extra = extra
 
 
-class QuotaExceeded(DomainError):
-    code = "quota_exceeded"
-    status_code = 429
-    message = "今天的免费次数已经用完"
-
-
 class ActiveJobExists(DomainError):
     code = "active_job_exists"
     status_code = 409
@@ -37,36 +31,10 @@ class NotFound(DomainError):
     message = "未找到"
 
 
-class Unauthorized(DomainError):
-    code = "unauthorized"
-    status_code = 401
-    message = "请先登录"
-
-
-class Forbidden(DomainError):
-    code = "forbidden"
-    status_code = 403
-    message = "没有权限"
-
-
-class Conflict(DomainError):
-    code = "conflict"
-    status_code = 409
-    message = "请求冲突"
-
-
 class ValidationFailed(DomainError):
     code = "validation_error"
     status_code = 400
     message = "输入不合法"
-
-
-
-
-class RateLimited(DomainError):
-    code = "rate_limited"
-    status_code = 429
-    message = "操作过于频繁，请稍后再试"
 
 
 class FileTooLarge(DomainError):

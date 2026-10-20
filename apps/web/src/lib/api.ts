@@ -4,7 +4,6 @@ import type {
   HealthResponse,
   JobDetail,
   JobListResponse,
-  Me,
   Mode,
   Sample,
 } from "./types";
@@ -63,26 +62,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  me: () => request<Me>("/me"),
   config: () => request<AppConfig>("/config"),
   health: () => request<HealthResponse>("/health"),
   samples: () => request<{ samples: Sample[] }>("/samples"),
-
-  register: (email: string, password: string) =>
-    request<Me>("/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    }),
-
-  login: (email: string, password: string) =>
-    request<Me>("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    }),
-
-  logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
   createJob: (form: FormData) =>
     request<CreateJobResponse>("/jobs", { method: "POST", body: form }),

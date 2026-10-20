@@ -10,10 +10,10 @@ from typing import Any
 
 from fastapi import UploadFile
 
-from .auth import Actor, active_since
+from .auth import Actor, active_since_iso
 from .context import AppContext
-from .errors import NotFound, QuotaExceeded, ValidationFailed
-from .timeutil import iso, next_reset, utcnow
+from .errors import NotFound, ValidationFailed
+from .timeutil import iso
 from .uploads import (
     prepare_input,
     relative_to_data,
@@ -68,25 +68,16 @@ def _database_create(
     try:
         return ctx.db.create_job(
             job_id=job_id,
-            user_id=actor.user_id,
             anon_id=actor.anon_id,
-            ip_hash=actor.ip_hash,
             mode=mode,
             label=label,
             input_path=relative_to_data(settings, input_path),
             gt_path=relative_to_data(settings, gt_path) if gt_path else None,
             result_dir=relative_to_data(settings, result_dir),
-            usage_day=actor.day,
-            usage_subject=actor.usage_subject,
-            daily_limit=settings.daily_limit,
             max_active=settings.max_active_jobs,
             max_queue=settings.max_queue_length,
-            active_since=active_since(settings),
+            active_since=active_since_iso(settings.job_timeout_seconds),
         )
-    except QuotaExceeded as exc:
-        exc.extra.setdefault("resets_at", iso(next_reset(utcnow(), settings.tz)))
-        exc.extra.setdefault("limit", settings.daily_limit)
-        raise
     except Exception:
         shutil.rmtree(job_dir, ignore_errors=True)
         raise
@@ -162,9 +153,7 @@ def create_sample_job(ctx: AppContext, actor: Actor, sample_id: str, mode: str) 
 
 
 def can_access(job: dict[str, Any], actor: Actor) -> bool:
-    if job.get("user_id"):
-        return bool(actor.user_id and job["user_id"] == actor.user_id)
-    return bool(not actor.user and job.get("anon_id") and job["anon_id"] == actor.anon_id)
+    return bool(job.get("anon_id") and job["anon_id"] == actor.anon_id)
 
 
 def accessible_job(ctx: AppContext, actor: Actor, job_id: str) -> dict[str, Any]:
@@ -214,13 +203,13 @@ def summary(job: dict[str, Any]) -> dict[str, Any]:
         "confidence": job.get("confidence"),
         "needs_review": bool(job.get("needs_review")),
         "error": job.get("error") if job["status"] == "error" else None,
-        "files_ready": job["status"] == "done" and not job.get("files_deleted"),
+        "files_ready": job["status"] == "done",
     }
 
 
 def detail(ctx: AppContext, job: dict[str, Any]) -> dict[str, Any]:
     payload = summary(job)
-    payload["report"] = None if job.get("files_deleted") else _report(job)
+    payload["report"] = _report(job)
     payload["files"] = [
         name
         for name in FILE_NAMES
@@ -230,5 +219,5 @@ def detail(ctx: AppContext, job: dict[str, Any]) -> dict[str, Any]:
 
 
 def history(ctx: AppContext, actor: Actor, limit: int = 20) -> list[dict[str, Any]]:
-    rows = ctx.db.list_jobs(user_id=actor.user_id, anon_id=None if actor.user else actor.anon_id, limit=limit)
+    rows = ctx.db.list_jobs(anon_id=actor.anon_id, limit=limit)
     return [summary(row) for row in rows]

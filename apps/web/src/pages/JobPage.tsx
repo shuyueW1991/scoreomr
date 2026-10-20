@@ -12,7 +12,6 @@ import {
   shortId,
 } from "../lib/format";
 import { errorMessage, localizeJobLabel, useI18n } from "../lib/i18n";
-import { useMe } from "../lib/me";
 import type { Candidate, JobDetail } from "../lib/types";
 import { StatusBadge } from "../components/StatusBadge";
 import { Spinner } from "../components/Spinner";
@@ -89,7 +88,6 @@ function CandidateTable({ candidates, chosen }: { candidates: Candidate[]; chose
 export function JobPage() {
   const { id = "" } = useParams();
   const { t } = useI18n();
-  const { refresh } = useMe();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -118,7 +116,6 @@ export function JobPage() {
           timer = window.setTimeout(poll, 1500);
         } else if (!terminalRef.current) {
           terminalRef.current = true;
-          void refresh();
         }
       } catch (err) {
         if (!alive) return;
@@ -135,7 +132,7 @@ export function JobPage() {
       alive = false;
       if (timer) window.clearTimeout(timer);
     };
-  }, [id, refresh]);
+  }, [id]);
 
   const active = job?.status === "queued" || job?.status === "running";
 
@@ -513,8 +510,8 @@ export function JobPage() {
         <section className="section narrow">
           <div className="empty-state">
             <FileIcon size={30} />
-            <h1>{t("job.cleaned")}</h1>
-            <p>{t("job.cleanedDesc")}</p>
+            <h1>{t("job.resultLost")}</h1>
+            <p>{t("job.resultLostDesc")}</p>
             <Link to="/" className="btn btn-primary">
               {t("job.retryUpload")} <ArrowRightIcon size={16} />
             </Link>

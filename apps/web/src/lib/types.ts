@@ -1,34 +1,10 @@
 export type Mode = "compare" | "audiveris" | "homr";
 export type JobStatus = "queued" | "running" | "done" | "error";
 
-export interface Quota {
-  daily_limit: number;
-  used_today: number;
-  remaining_today: number;
-  resets_at: string;
-  timezone: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  google_linked: boolean;
-  created_at: string;
-}
-
-export interface Me {
-  user: User | null;
-  quota: Quota;
-  server_time: string;
-}
-
 export interface AppConfig {
   app_name: string;
   app_env: "production" | "development" | "test";
-  daily_limit: number;
-  google_auth_enabled: boolean;
   max_upload_mb: number;
-  job_retention_days: number;
   omr_mock: boolean;
   engines: string[];
   samples: number;
@@ -104,12 +80,10 @@ export interface JobDetail extends JobSummary {
 
 export interface JobListResponse {
   jobs: JobSummary[];
-  quota: Quota;
 }
 
 export interface CreateJobResponse {
   job: JobSummary;
-  quota: Quota;
 }
 
 export interface HealthResponse {

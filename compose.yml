@@ -2,7 +2,7 @@ name: scoreomr
 
 # ---------------------------------------------------------------------------
 # Shared application environment. Every value has a default so the stack
-# boots without a .env file; Google login and HTTPS stay optional.
+# boots without a .env file. No account system, no API keys required.
 # Compose also loads .env automatically for substitutions.
 # ---------------------------------------------------------------------------
 x-app-env: &app-env
@@ -12,23 +12,14 @@ x-app-env: &app-env
   APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
   DATA_DIR: /data
   DATABASE_PATH: /data/scoreomr.db
-  SESSION_SECRET: ${SESSION_SECRET:-}
-  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-}
-  SESSION_DAYS: ${SESSION_DAYS:-30}
-  DAILY_LIMIT: ${DAILY_LIMIT:-1}
-  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-  GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
   MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
   MAX_GT_MB: ${MAX_GT_MB:-2}
   MAX_QUEUE_LENGTH: ${MAX_QUEUE_LENGTH:-20}
   MAX_ACTIVE_JOBS: ${MAX_ACTIVE_JOBS:-1}
-  JOB_RETENTION_DAYS: ${JOB_RETENTION_DAYS:-7}
   JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-900}
   WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-1.5}
   OMR_MOCK: ${OMR_MOCK:-false}
   OMR_ENGINES: ${OMR_ENGINES:-audiveris,homr}
-  TRUST_PROXY: "true"
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
 x-logging: &logging

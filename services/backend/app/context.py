@@ -12,8 +12,6 @@ from fastapi import Request
 
 from .config import Settings
 from .db import Database
-from .google_auth import GoogleOAuth
-from .ratelimit import SlidingWindow
 from .timeutil import utcnow
 
 log = logging.getLogger(__name__)
@@ -22,39 +20,24 @@ log = logging.getLogger(__name__)
 @dataclass
 class AppContext:
     settings: Settings
-    secret: str
     db: Database
-    google: GoogleOAuth
     samples: list[dict[str, Any]] = field(default_factory=list)
     started_at: datetime = field(default_factory=utcnow)
-    register_limiter: SlidingWindow = field(init=False)
-    login_limiter: SlidingWindow = field(init=False)
-    upload_limiter: SlidingWindow = field(init=False)
-
-    def __post_init__(self) -> None:
-        s = self.settings
-        self.register_limiter = SlidingWindow(s.registration_per_hour, 3600)
-        self.login_limiter = SlidingWindow(s.logins_per_10min, 600)
-        self.upload_limiter = SlidingWindow(s.uploads_per_10min, 600)
 
     @classmethod
     def build(
         cls,
         settings: Settings | None = None,
         *,
-        google: GoogleOAuth | None = None,
         load_samples: bool = True,
     ) -> "AppContext":
         settings = settings or Settings.from_env()
         settings.ensure_dirs()
-        secret = settings.resolve_secret()
         db = Database(settings.database_path)
         db.init()
         ctx = cls(
             settings=settings,
-            secret=secret,
             db=db,
-            google=google or GoogleOAuth(settings),
         )
         if load_samples:
             ctx.samples = load_sample_manifest(settings.samples_dir)

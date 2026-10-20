@@ -7,7 +7,7 @@ import pytest
 from PIL import Image
 from starlette.testclient import TestClient
 
-from tests.conftest import create_sample_job, finish_job, register
+from tests.conftest import create_sample_job, finish_job
 
 
 def png_bytes(width: int = 640, height: int = 240) -> bytes:
@@ -17,23 +17,19 @@ def png_bytes(width: int = 640, height: int = 240) -> bytes:
     return buffer.getvalue()
 
 
-def test_different_users_cannot_read_each_others_jobs(client):
-    user_a = register(client, email="a@example.com")
-    job = create_sample_job(client)
-    client.post("/api/auth/logout")
-    register(client, email="b@example.com")
-    assert client.get(f"/api/jobs/{job['id']}").status_code == 404
-    assert client.get(f"/api/jobs/{job['id']}/files/input.png").status_code == 404
-    assert user_a["user"]["email"] == "a@example.com"
-
-
 def test_anonymous_job_is_not_visible_to_new_browser(app):
     with TestClient(app) as first:
-        first.get("/api/me")
         job = create_sample_job(first)
     with TestClient(app) as second:
-        second.get("/api/me")
         assert second.get(f"/api/jobs/{job['id']}").status_code == 404
+        assert second.get(f"/api/jobs/{job['id']}/files/input.png").status_code == 404
+        assert second.get("/api/jobs").json()["jobs"] == []
+
+
+def test_owner_can_see_their_jobs_in_history(client):
+    job = create_sample_job(client)
+    history = client.get("/api/jobs").json()["jobs"]
+    assert [row["id"] for row in history] == [job["id"]]
 
 
 def test_job_files_are_allowlisted(client):
@@ -51,7 +47,6 @@ def test_upload_rejects_non_image(client):
         data={"mode": "compare"},
     )
     assert response.status_code == 415
-    assert client.get("/api/me").json()["quota"]["remaining_today"] == 1
 
 
 def test_upload_accepts_png(client):
@@ -70,7 +65,7 @@ def test_upload_accepts_png(client):
         assert image.mode == "RGB"
 
 
-def test_gt_with_doctype_is_rejected_and_quota_is_not_consumed(client):
+def test_gt_with_doctype_is_rejected(client):
     response = client.post(
         "/api/jobs",
         files={
@@ -84,7 +79,6 @@ def test_gt_with_doctype_is_rejected_and_quota_is_not_consumed(client):
         data={"mode": "compare", "use_gt": "1"},
     )
     assert response.status_code == 415
-    assert client.get("/api/me").json()["quota"]["remaining_today"] == 1
 
 
 @pytest.mark.skipif(shutil.which("pdftoppm") is None, reason="poppler not installed")
